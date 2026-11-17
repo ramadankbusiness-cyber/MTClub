@@ -95,11 +95,13 @@ model User {
   position           Position @default(LEADER)
   isMTC              Boolean  @default(false)
   committeeId        String?
+  phone              String?
+  academicNumber     String?  @unique @db.VarChar(64)
+  clubId             String?  @unique @db.VarChar(64)
   isActive           Boolean  @default(true)
   mustChangePassword        Boolean   @default(true)
   temporaryPasswordExpiresAt DateTime?
   sessionVersion            Int       @default(0)
-  phone              String?
   photoUrl           String?
   preferredLanguage  String   @default("en") @db.VarChar(2)
   createdAt          DateTime @default(now())

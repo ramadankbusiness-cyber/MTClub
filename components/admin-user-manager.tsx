@@ -12,6 +12,9 @@ export type AdminUserRow = {
   id: string;
   name: string;
   email: string;
+  phone?: string | null;
+  academicNumber?: string | null;
+  clubId?: string | null;
   role: Role;
   position?: PositionLevel;
   isMTC?: boolean;
@@ -23,13 +26,17 @@ export type AdminUserRow = {
 
 const parseRole = (value: string): Role => value === "ADMIN" || value === "LEADER" || value === "MEMBER" ? value : "MEMBER";
 const defaultRoleForPosition = (position: PositionLevel): Role => (position === "HEAD" || position === "VICE" || position === "LEADER") ? "LEADER" : "MEMBER";
+const toNull = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+};
 
 export function AdminUserManager({ initialUsers, committees, userRole, userCommitteeId }: { initialUsers: AdminUserRow[]; committees: DbCommittee[]; userRole?: Role; userCommitteeId?: string | null }) {
   const t = useTranslations("site.adminPages.users");
   const locale = useLocale() as "en" | "ar";
   const showToast = useAppToast();
   const [users, setUsers] = useState(initialUsers);
-  const [form, setForm] = useState({ name: "", email: "", role: "MEMBER" as Role, position: "LEADER" as PositionLevel, isMTC: false, committeeId: userRole === "LEADER" && userCommitteeId ? userCommitteeId : "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", academicNumber: "", clubId: "", role: "MEMBER" as Role, position: "LEADER" as PositionLevel, isMTC: false, committeeId: userRole === "LEADER" && userCommitteeId ? userCommitteeId : "" });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
@@ -76,17 +83,26 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, committeeId: form.committeeId || null }),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: toNull(form.phone),
+          academicNumber: toNull(form.academicNumber),
+          clubId: toNull(form.clubId),
+          role: form.role,
+          position: form.position,
+          isMTC: form.isMTC,
+          committeeId: form.committeeId || null,
+        }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error("create-failed");
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "create-failed");
       const committee = committees.find((entry) => entry.id === result.user.committeeId) ?? null;
       setUsers((current) => [...current, { ...result.user, committee, isActive: true, mustChangePassword: true }]);
-      revealTemporaryPassword(result.temporaryPassword);
-      setMessage(t("created", { email: result.user.email }));
-      setForm({ name: "", email: "", role: "MEMBER", position: "LEADER", isMTC: false, committeeId: "" });
-    } catch {
-      const errorMessage = t("createError");
+      setMessage(t("created", { email: result.user.email }) + " Initial password: mtc123 (must be changed on first sign-in).");
+      setForm({ name: "", email: "", phone: "", academicNumber: "", clubId: "", role: "MEMBER", position: "LEADER", isMTC: false, committeeId: userRole === "LEADER" && userCommitteeId ? userCommitteeId : "" });
+    } catch (error) {
+      const errorMessage = error instanceof Error && error.message && error.message !== "create-failed" ? error.message : t("createError");
       setMessage(errorMessage);
       showToast(errorMessage);
     } finally {
@@ -94,31 +110,37 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
     }
   }
 
-  async function updateUser(id: string, changes: { isActive: boolean } | { role: Role; position: PositionLevel; isMTC: boolean; committeeId: string | null }) {
+  async function saveUser(id: string, changes: Record<string, unknown>) {
     setMessage("");
     const response = await fetch(`/api/admin/users/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(changes),
     });
+    const result = await response.json().catch(() => ({}));
     if (!response.ok) {
-      setMessage(t("updateError"));
+      const errorMessage = result?.error || t("updateError");
+      setMessage(errorMessage);
+      showToast(errorMessage);
       return;
     }
-    setUsers((current) => current.map((user) => {
-      if (user.id !== id) return user;
-      if ("isActive" in changes) return { ...user, isActive: changes.isActive };
-      return { ...user, ...changes, committee: committees.find((entry) => entry.id === changes.committeeId) ?? null, mustChangePassword: true };
-    }));
-    if ("role" in changes) setMessage(t("roleUpdated"));
+    if (result?.user) {
+      setUsers((current) => current.map((user) => user.id === id ? {
+        ...user,
+        ...result.user,
+        committee: committees.find((entry) => entry.id === (result.user.committeeId ?? null)) ?? null,
+      } : user));
+    }
+    if ("isActive" in changes) return;
+    setMessage(t("roleUpdated"));
   }
 
   async function resetPassword(id: string) {
     clearTemporaryPassword();
     const response = await fetch(`/api/admin/users/${id}`, { method: "POST" });
-    const result = await response.json();
-    if (!response.ok) { setMessage(t("resetError")); return; }
-    revealTemporaryPassword(result.temporaryPassword);
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) { setMessage(result?.error || t("resetError")); return; }
+    if (result.temporaryPassword) revealTemporaryPassword(result.temporaryPassword);
     setMessage(t("resetDone"));
     setUsers((current) => current.map((user) => user.id === id ? { ...user, mustChangePassword: true } : user));
   }
@@ -126,7 +148,8 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
   async function removeUser(user: AdminUserRow) {
     if (!window.confirm(t("deleteConfirm", { name: user.name }))) return;
     const response = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
-    if (!response.ok) { setMessage(t("deleteError")); return; }
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) { setMessage(result?.error || t("deleteError")); return; }
     setUsers((current) => current.filter((entry) => entry.id !== user.id));
   }
 
@@ -137,6 +160,9 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
         <div className="admin-form-grid">
           <label>{t("name")}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required minLength={2} maxLength={100} /></label>
           <label>{t("email")}<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required maxLength={254} /></label>
+          <label>Phone Number<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+20 100 000 0000" maxLength={32} /></label>
+          <label>Academic Number<input value={form.academicNumber} onChange={(event) => setForm({ ...form, academicNumber: event.target.value })} maxLength={64} /></label>
+          <label>MT Club ID<input value={form.clubId} onChange={(event) => setForm({ ...form, clubId: event.target.value })} maxLength={64} /></label>
           <label>{t("role")}<select value={form.role} onChange={(event) => setForm({ ...form, role: parseRole(event.target.value) })}><option value="MEMBER">{t("member")}</option><option value="LEADER">{t("leader")}</option><option value="ADMIN">{t("admin")}</option></select></label>
           <label>{t("position") ?? "Position"}<select value={form.position} onChange={(event) => { const position = event.target.value as PositionLevel; setForm({ ...form, position, role: defaultRoleForPosition(position) }); }}><option value="HEAD">{getPositionLabel("HEAD", locale)}</option><option value="VICE">{getPositionLabel("VICE", locale)}</option><option value="LEADER">{getPositionLabel("LEADER", locale)}</option></select></label>
           <label className="visibility-control"><input type="checkbox" checked={form.isMTC} onChange={(event) => setForm({ ...form, isMTC: event.target.checked })} />{t("isMtc") ?? "Part of MTC / Club heads"}</label>
@@ -154,7 +180,7 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
             disabled={form.role === "ADMIN" || (userRole === "LEADER" && userCommitteeId ? true : false)}
           /></label>
         </div>
-        <p className="empty-note">{t("temporaryInfo")}</p>
+        <p className="empty-note">New accounts are created with the fixed initial password <strong>mtc123</strong> and must change it on first sign-in.</p>
         {message && <p className="form-message" role="status">{message}</p>}
         <button className="button button-primary" type="submit" disabled={busy}>{busy ? t("creating") : t("create")}</button>
       </form>
@@ -167,7 +193,8 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
               key={user.id}
               user={user}
               committees={committees}
-              onUpdate={(changes) => void updateUser(user.id, changes)}
+              onSave={(changes) => void saveUser(user.id, changes)}
+              onToggleActive={() => void saveUser(user.id, { isActive: !user.isActive })}
               onReset={() => void resetPassword(user.id)}
               onRemove={() => void removeUser(user)}
               userRole={userRole}
@@ -195,24 +222,69 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
   );
 }
 
-function UserAdminRow({ user, committees, onUpdate, onReset, onRemove, userRole, userCommitteeId }: { user: AdminUserRow; committees: DbCommittee[]; onUpdate: (changes: { isActive: boolean } | { role: Role; position: PositionLevel; isMTC: boolean; committeeId: string | null }) => void; onReset: () => void; onRemove: () => void; userRole?: Role; userCommitteeId?: string | null }) {
+function UserAdminRow({ user, committees, onSave, onToggleActive, onReset, onRemove, userRole, userCommitteeId }: { user: AdminUserRow; committees: DbCommittee[]; onSave: (changes: Record<string, unknown>) => void; onToggleActive: () => void; onReset: () => void; onRemove: () => void; userRole?: Role; userCommitteeId?: string | null }) {
   const t = useTranslations("site.adminPages.users");
   const locale = useLocale() as "en" | "ar";
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [academicNumber, setAcademicNumber] = useState(user.academicNumber ?? "");
+  const [clubId, setClubId] = useState(user.clubId ?? "");
   const [role, setRole] = useState<Role>(user.role);
   const [position, setPosition] = useState<PositionLevel>(user.position ?? "LEADER");
   const [isMTC, setIsMTC] = useState(!!user.isMTC);
   const isLeader = userRole === "LEADER";
   const lockedCommittee = isLeader && userCommitteeId ? userCommitteeId : null;
   const [committeeId, setCommitteeId] = useState(lockedCommittee ?? user.committeeId ?? "");
+
+  useEffect(() => {
+    setName(user.name);
+    setEmail(user.email);
+    setPhone(user.phone ?? "");
+    setAcademicNumber(user.academicNumber ?? "");
+    setClubId(user.clubId ?? "");
+    setRole(user.role);
+    setPosition(user.position ?? "LEADER");
+    setIsMTC(!!user.isMTC);
+    setCommitteeId(lockedCommittee ?? user.committeeId ?? "");
+  }, [user, lockedCommittee]);
+
+  function saveAll() {
+    const selected = committees.find((c) => c.id === committeeId);
+    const nextCommitteeId = role === "ADMIN" ? null : (isLeader ? userCommitteeId ?? null : committeeId || null);
+    onSave({
+      name: name.trim(),
+      email: email.trim(),
+      phone: toNull(phone),
+      academicNumber: toNull(academicNumber),
+      clubId: toNull(clubId),
+      role,
+      position,
+      isMTC: isMTC || selected?.key === "mtc",
+      committeeId: nextCommitteeId,
+    });
+  }
+
   return (
     <article className="user-admin-row">
       <div className="user-admin-identity"><strong>{user.name}</strong><span>{user.email}</span></div>
-      <div className="user-admin-status"><span>{user.isMTC ? "MTC" : (user.committee?.name ?? t("noCommittee"))}</span><span>{user.isActive ? t("active") : t("inactive")}{user.mustChangePassword ? t("passwordRequired") : ""}</span></div>
-      <div className="user-role-controls">
-        <label><span className="sr-only">{t("roleFor", { name: user.name })}</span><select value={role} onChange={(event) => setRole(parseRole(event.target.value))}><option value="ADMIN">{t("admin")}</option><option value="LEADER">{t("leader")}</option><option value="MEMBER">{t("member")}</option></select></label>
-        <label><span className="sr-only">{t("position") ?? "Position"}</span><select value={position} onChange={(event) => { const p = event.target.value as PositionLevel; setPosition(p); }}><option value="HEAD">{getPositionLabel("HEAD", locale)}</option><option value="VICE">{getPositionLabel("VICE", locale)}</option><option value="LEADER">{getPositionLabel("LEADER", locale)}</option></select></label>
+      <div className="user-admin-status">
+        <span>{user.clubId ? `Club ID: ${user.clubId}` : "No Club ID"}</span>
+        <span>{user.academicNumber ? `Academic: ${user.academicNumber}` : "No Academic Number"}</span>
+        <span>{user.phone ? `Phone: ${user.phone}` : "No Phone"}</span>
+        <span>{user.isMTC ? "MTC" : (user.committee?.name ?? t("noCommittee"))}</span>
+        <span>{user.isActive ? t("active") : t("inactive")}{user.mustChangePassword ? t("passwordRequired") : ""}</span>
+      </div>
+      <div className="admin-form-grid user-role-controls">
+        <label><span>{t("name")}</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label><span>{t("email")}</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+        <label><span>Phone</span><input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} /></label>
+        <label><span>Academic Number</span><input value={academicNumber} onChange={(e) => setAcademicNumber(e.target.value)} maxLength={64} /></label>
+        <label><span>MT Club ID</span><input value={clubId} onChange={(e) => setClubId(e.target.value)} maxLength={64} /></label>
+        <label><span>{t("role")}</span><select value={role} onChange={(event) => setRole(parseRole(event.target.value))}><option value="ADMIN">{t("admin")}</option><option value="LEADER">{t("leader")}</option><option value="MEMBER">{t("member")}</option></select></label>
+        <label><span>{t("position") ?? "Position"}</span><select value={position} onChange={(event) => setPosition(event.target.value as PositionLevel)}><option value="HEAD">{getPositionLabel("HEAD", locale)}</option><option value="VICE">{getPositionLabel("VICE", locale)}</option><option value="LEADER">{getPositionLabel("LEADER", locale)}</option></select></label>
         <label className="visibility-control"><input type="checkbox" checked={isMTC} onChange={(e) => setIsMTC(e.target.checked)} /><span>{t("isMtc") ?? "MTC"}</span></label>
-        <label><span className="sr-only">{t("committeeFor", { name: user.name })}</span><CommitteeSelect
+        <label><span>{t("committee")}</span><CommitteeSelect
           committees={committees}
           includeMTC
           value={committeeId}
@@ -225,13 +297,10 @@ function UserAdminRow({ user, committees, onUpdate, onReset, onRemove, userRole,
           mode="single"
           disabled={role === "ADMIN" || (isLeader && userCommitteeId ? true : false)}
         /></label>
-        <button type="button" className="button button-secondary" onClick={() => {
-          const selected = committees.find((c) => c.id === committeeId);
-          onUpdate({ role, position, isMTC: isMTC || selected?.key === "mtc", committeeId: role === "ADMIN" ? null : (isLeader ? userCommitteeId ?? null : committeeId || null) });
-        }}>{t("saveRole")}</button>
+        <button type="button" className="button button-secondary" onClick={saveAll}>{t("saveRole")}</button>
       </div>
       <div className="user-admin-actions">
-        <button type="button" className="button button-secondary" onClick={() => onUpdate({ isActive: !user.isActive })}>{user.isActive ? t("deactivate") : t("reactivate")}</button>
+        <button type="button" className="button button-secondary" onClick={onToggleActive}>{user.isActive ? t("deactivate") : t("reactivate")}</button>
         <button type="button" className="button button-secondary" onClick={onReset}>{t("resetPassword")}</button>
         <button type="button" className="button button-secondary danger-button" onClick={onRemove}>{t("delete")}</button>
       </div>

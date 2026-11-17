@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import { PrismaClient } from "../lib/generated/prisma";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "node:crypto";
 import { CLUB_COMMITTEES, committeeDetails } from "../data/committees";
 import { Role } from "../lib/db-enums";
 
@@ -16,12 +15,11 @@ async function seedAccount(input: {
   email: string;
   role: Role;
   committeeId?: string;
-  password: string;
 }) {
   const email = emailFor(input.email);
   const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
   if (existing) return existing.id;
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash("mtc123", 12);
   const user = await prisma.user.create({
     data: {
       name: input.name,
@@ -30,10 +28,11 @@ async function seedAccount(input: {
       committeeId: input.committeeId,
       passwordHash,
       mustChangePassword: true,
+      temporaryPasswordExpiresAt: null,
     },
     select: { id: true },
   });
-  console.info(`Created ${input.role.toLowerCase()} account: ${email}`);
+  console.info(`Created ${input.role.toLowerCase()} account: ${email}.`);
   return user.id;
 }
 
@@ -88,7 +87,7 @@ async function main() {
     { name: "Tech Committee Lead", email: "leader.technology@example.com", committeeId: tech.id },
   ];
   for (const leader of leaders) {
-    await seedAccount({ ...leader, role: Role.LEADER, password: `${randomBytes(24).toString("base64url")}Aa1` });
+    await seedAccount({ ...leader, role: Role.LEADER });
   }
 
   for (let index = 1; index <= 10; index += 1) {
@@ -97,7 +96,6 @@ async function main() {
       email: `member${String(index).padStart(2, "0")}@example.com`,
       role: Role.MEMBER,
       committeeId: index % 2 === 0 ? tech.id : oc.id,
-      password: `${randomBytes(24).toString("base64url")}Aa1`,
     });
   }
 

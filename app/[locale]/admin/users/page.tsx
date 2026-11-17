@@ -22,8 +22,10 @@ export default async function AdminUsersPage({ params }: Props) {
     prisma.user.findMany({
       orderBy: [{ role: "asc" }, { name: "asc" }],
       select: {
-        id: true, name: true, email: true, role: true, position: true, isMTC: true, committeeId: true,
-        committee: { select: { id: true, key: true, name: true, nameAr: true, type: true } }, isActive: true, mustChangePassword: true,
+        id: true, name: true, email: true, phone: true, academicNumber: true, clubId: true,
+        role: true, position: true, isMTC: true, committeeId: true,
+        committee: { select: { id: true, key: true, name: true, nameAr: true, type: true } },
+        isActive: true, mustChangePassword: true,
       },
     }),
     listClubCommittees(null, { includeMTC: true }),

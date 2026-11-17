@@ -30,6 +30,23 @@ export const resetPasswordSchema = z.object({
   newPassword: strongPasswordSchema,
 });
 
+const optionalTrimmedString = (max: number) =>
+  z.preprocess((value) => {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  }, z.string().max(max).nullable().optional());
+
+const phoneSchema = z.preprocess((value) => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}, z.string().min(7).max(32).regex(/^\+?[0-9()\-.\s]+$/, "Enter a valid phone number.").nullable().optional());
+
+export const INITIAL_ACCOUNT_PASSWORD = "mtc123";
+
 export const accountSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
@@ -37,17 +54,25 @@ export const accountSchema = z.object({
   position: positionSchema.default("LEADER"),
   isMTC: z.boolean().default(false),
   committeeId: z.string().trim().min(1).optional().nullable(),
-  temporaryPassword: strongPasswordSchema.optional(),
+  phone: phoneSchema,
+  academicNumber: optionalTrimmedString(64),
+  clubId: optionalTrimmedString(64),
 }).refine((value) => value.isMTC || value.role === "ADMIN" || !!value.committeeId, {
   message: "Committee is required unless the account is MTC-only or an admin.",
   path: ["committeeId"],
 });
 
-export const userRoleUpdateSchema = z.object({
-  role: z.enum(["ADMIN", "LEADER", "MEMBER"]),
-  committeeId: z.string().nullable().optional(),
+export const userAdminUpdateSchema = z.object({
+  name: z.string().trim().min(2).max(100).optional(),
+  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()).optional(),
+  role: z.enum(["ADMIN", "LEADER", "MEMBER"]).optional(),
+  committeeId: z.string().trim().min(1).nullable().optional(),
   position: positionSchema.optional(),
   isMTC: z.boolean().optional(),
+  phone: phoneSchema,
+  academicNumber: optionalTrimmedString(64),
+  clubId: optionalTrimmedString(64),
+  isActive: z.boolean().optional(),
 });
 
 export const teamMemberSchema = z.object({
