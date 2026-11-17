@@ -26,7 +26,11 @@ export async function middleware(request: NextRequest) {
     return intlResponse;
   }
 
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: request.nextUrl.protocol === "https:",
+  });
   if (!token?.id) {
     const callbackUrl = safeReturnPath(removeLocalePrefix(`${request.nextUrl.pathname}${request.nextUrl.search}`));
     const loginUrl = new URL(`/${locale}/login`, request.url);
