@@ -1,6 +1,3 @@
 {
-  "buildCommand": "npm run build",
-  "crons": [
-    { "path": "/api/cron/notifications", "schedule": "* * * * *" }
-  ]
+  "buildCommand": "npm run build"
 }
