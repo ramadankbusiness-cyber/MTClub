@@ -40,6 +40,9 @@ export async function runAdminSeed(options?: {
     throw new Error("Set a valid ADMIN_EMAIL in .env.local.");
   }
   if (shouldReset) {
+    if (!isValidAdminPassword(adminPassword)) {
+      throw new Error("ADMIN_PASSWORD must be set and valid before using --reset-password.");
+    }
     if (!databaseUrl) {
       throw new Error("ADMIN_SEED_DATABASE_MISSING");
     }
