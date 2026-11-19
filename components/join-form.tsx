@@ -8,8 +8,8 @@ import { useSite } from "./site-provider";
 import { useAppToast } from "@/components/app-toast-provider";
 import { CommitteeSelect } from "@/components/committee-select";
 
-type FormFields = { name: string; email: string; academicNumber: string; committees: ClubCommittee[]; message: string };
-const initialForm: FormFields = { name: "", email: "", academicNumber: "", committees: [], message: "" };
+type FormFields = { name: string; email: string; academicNumber: string; phone: string; committees: ClubCommittee[]; message: string };
+const initialForm: FormFields = { name: "", email: "", academicNumber: "", phone: "", committees: [], message: "" };
 
 export function JoinForm() {
   const { text, language } = useSite();
@@ -26,9 +26,11 @@ export function JoinForm() {
       const committeeIssue = parsed.error.issues.some((issue) => issue.path[0] === "committees");
       const emailIssue = parsed.error.issues.some((issue) => issue.path[0] === "email");
       const academicIssue = parsed.error.issues.some((issue) => issue.path[0] === "academicNumber");
+      const phoneIssue = parsed.error.issues.some((issue) => issue.path[0] === "phone");
       setErrorMessage(
         academicIssue ? (text.join.academicRequired ?? text.join.required) :
         emailIssue ? text.join.invalidEmail :
+        phoneIssue ? (text.join.phoneInvalid ?? text.join.required) :
         committeeIssue ? text.join.committeeLimit :
         text.join.required,
       );
@@ -60,7 +62,7 @@ export function JoinForm() {
     setForm((current) => ({ ...form, committees: current.committees.filter((committee) => committee !== value) }));
   }
 
-  function update(field: "name" | "email" | "academicNumber" | "message", value: string) {
+  function update(field: "name" | "email" | "academicNumber" | "phone" | "message", value: string) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
@@ -73,12 +75,14 @@ export function JoinForm() {
       <label>{text.join.name}<input autoComplete="name" name="name" value={form.name} onChange={(event) => update("name", event.target.value)} required maxLength={100} /></label>
       <label>{text.join.email}<input autoComplete="email" name="email" type="email" value={form.email} onChange={(event) => update("email", event.target.value)} required maxLength={254} /></label>
       <label>{text.join.academicNumber ?? "Academic number"}<input autoComplete="off" name="academicNumber" type="text" value={form.academicNumber} onChange={(event) => update("academicNumber", event.target.value)} required maxLength={64} /></label>
+      <label>{text.join.phone ?? "Phone number"}<input autoComplete="tel" name="phone" type="tel" inputMode="tel" placeholder={text.join.phonePlaceholder ?? "01XXXXXXXXX or +201XXXXXXXXX"} value={form.phone} onChange={(event) => update("phone", event.target.value)} required maxLength={20} /></label>
       <div className="join-committee-field">
         <label htmlFor="join-committee">{text.join.interest}</label>
         <CommitteeSelect
           id="join-committee"
           mode="multi"
           valueField="name"
+          maxSelections={3}
           value={form.committees as string[]}
           onChange={(v) => setForm({ ...form, committees: v as ClubCommittee[] })}
           required={form.committees.length === 0}

@@ -5,13 +5,22 @@ import { joinApplicationSchema } from "@/lib/schemas";
 import { prisma } from "@/lib/prisma";
 import { createImmediateNotification } from "@/lib/notification-delivery";
 
-async function notifyAdminsOfApplication(application: {
+type StoredJoinApplication = {
   name: string;
   email: string;
   academicNumber: string;
+  phone: string;
   committees: string[];
   submittedAt: string;
-}) {
+};
+
+function supabaseConfig() {
+  const url = process.env.SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SECRET_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  return { url, key };
+}
+
+async function notifyAdminsOfApplication(application: StoredJoinApplication) {
   try {
     const admins = await prisma.user.findMany({
       where: { role: "ADMIN", isActive: true },
@@ -23,8 +32,8 @@ async function notifyAdminsOfApplication(application: {
     await createImmediateNotification({
       title: `New membership application: ${application.name}`,
       titleAr: `طلب انضمام جديد: ${application.name}`,
-      message: `Applicant: ${application.name}\nAcademic number: ${application.academicNumber}\nCommittees: ${committees}\nSubmitted: ${submittedLabel}`,
-      messageAr: `المتقدم: ${application.name}\nالرقم الأكاديمي: ${application.academicNumber}\nاللجان: ${committees}\nوقت التقديم: ${submittedLabel}`,
+      message: `Applicant: ${application.name}\nAcademic number: ${application.academicNumber}\nPhone: ${application.phone}\nCommittees: ${committees}\nSubmitted: ${submittedLabel}`,
+      messageAr: `المتقدم: ${application.name}\nالرقم الأكاديمي: ${application.academicNumber}\nالهاتف: ${application.phone}\nاللجان: ${committees}\nوقت التقديم: ${submittedLabel}`,
       link: "/admin/applications",
       type: "ANNOUNCEMENT",
       audience: "USERS",
@@ -37,6 +46,10 @@ async function notifyAdminsOfApplication(application: {
   }
 }
 
+function isMissingColumnError(message: string) {
+  return /column .* does not exist|Could not find the .* column|schema cache/i.test(message);
+}
+
 async function POSTInternal(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   const parsed = joinApplicationSchema.safeParse(body);
@@ -45,63 +58,69 @@ async function POSTInternal(request: Request) {
   }
   const application = parsed.data;
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+  const { url: supabaseUrl, key: supabaseKey } = supabaseConfig();
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ error: "Application storage is not configured" }, { status: 503 });
+    return NextResponse.json({ error: "Application service is temporarily unavailable. Please try again later." }, { status: 503 });
   }
 
   const submittedAt = new Date().toISOString();
   const storedApplication = {
     name: application.name,
     email: application.email,
+    phone: application.phone,
+    phone_number: application.phone,
     academic_number: application.academicNumber,
     academicNumber: application.academicNumber,
     committees: application.committees,
     message: application.message,
     submitted_at: submittedAt,
+    created_at: submittedAt,
   };
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // Best-effort duplicate prevention to avoid repeated submissions/notifications.
+  // Best-effort duplicate prevention (does not prove storage success).
   try {
     const recentCutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     const { data: recent } = await supabase
       .from("join_applications")
-      .select("id, created_at, email, academic_number, academicNumber")
-      .or(`email.eq.${application.email},academic_number.eq.${application.academicNumber},academicNumber.eq.${application.academicNumber}`)
+      .select("id, email, phone, phone_number, academic_number, academicNumber, created_at")
+      .eq("email", application.email)
       .gte("created_at", recentCutoff)
-      .limit(1);
-    if (Array.isArray(recent) && recent.length > 0) {
+      .limit(5);
+    if (Array.isArray(recent) && recent.some((row) => (row.phone ?? row.phone_number) === application.phone || (row.academicNumber ?? row.academic_number) === application.academicNumber)) {
       return NextResponse.json({ ok: true, duplicate: true }, { status: 200 });
     }
   } catch {
-    // Continue with insert if duplicate check is unsupported by the current table schema.
+    // Continue with insert if duplicate lookup is unsupported by current schema/policy.
   }
 
-  const { error: storageError } = await supabase.from("join_applications").insert(storedApplication);
+  const { error: storageError } = await supabase.from("join_applications").insert(storedApplication).select("id").single();
   if (storageError) {
-    console.error("[Join] Failed to store application", storageError.message);
-    return NextResponse.json({ error: "Application could not be stored" }, { status: 503 });
+    console.error("[Join] Failed to store application", { message: storageError.message, code: storageError.code });
+    if (isMissingColumnError(storageError.message)) {
+      return NextResponse.json({ error: "Application could not be stored because the application form fields are not fully supported yet. Please try again later." }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Application could not be stored. Please try again later." }, { status: 503 });
   }
 
   await notifyAdminsOfApplication({
     name: application.name,
     email: application.email,
     academicNumber: application.academicNumber,
+    phone: application.phone,
     committees: application.committees,
     submittedAt,
   });
 
-  const destination = process.env.JOIN_WEBHOOK_URL;
+  const destination = process.env.JOIN_WEBHOOK_URL?.trim();
   if (destination) {
     let webhook: URL;
     try {
       webhook = new URL(destination);
       if (webhook.protocol !== "https:" && webhook.protocol !== "http:") throw new Error("Unsupported protocol");
     } catch {
-      console.error("[Join] JOIN_WEBHOOK_URL must be a valid HTTP(S) URL");
+      console.error("[Join] JOIN_WEBHOOK_URL is invalid");
       return NextResponse.json({ ok: true, forwarded: false }, { status: 201 });
     }
 

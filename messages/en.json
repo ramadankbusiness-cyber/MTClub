@@ -94,6 +94,8 @@
       "name": "Full name",
       "email": "Email address",
       "academicNumber": "Academic number",
+      "phone": "Phone number",
+      "phonePlaceholder": "01XXXXXXXXX or +201XXXXXXXXX",
       "interest": "What are you interested in?",
       "select": "Choose a committee",
       "committeeHint": "Choose between 1 and 3 committees.",
@@ -107,7 +109,8 @@
       "error": "We couldn't send your application right now. Please try again later.",
       "required": "Please complete all required fields.",
       "invalidEmail": "Enter a valid email address.",
-      "academicRequired": "Enter a valid academic number."
+      "academicRequired": "Enter a valid academic number.",
+      "phoneInvalid": "Enter a valid Egyptian phone number (01XXXXXXXXX or +201XXXXXXXXX)."
     },
     "login": {
       "welcome": "Welcome",
@@ -580,6 +583,7 @@
         "all": "All committees",
         "loading": "Loading applications…",
         "selected": "Selected committees",
+        "phone": "Phone",
         "academicNumber": "Academic number",
         "loadError": "Could not load applications. Please try again.",
         "empty": "No applications found for this committee."

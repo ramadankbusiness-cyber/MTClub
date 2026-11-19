@@ -21,7 +21,7 @@ async function GETInternal(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
   let query = supabase
     .from("join_applications")
-    .select("id, name, email, academic_number, academicNumber, committees, message, created_at")
+    .select("id, name, email, phone, phone_number, academic_number, academicNumber, committees, message, created_at")
     .order("created_at", { ascending: false });
   if (committee) query = query.contains("committees", [committee]);
   const { data, error } = await query;
@@ -31,6 +31,7 @@ async function GETInternal(request: Request) {
   }
   const applications = (data ?? []).map((application) => ({
     ...application,
+    phone: application.phone ?? application.phone_number ?? null,
     academicNumber: application.academicNumber ?? application.academic_number ?? null,
   }));
   return NextResponse.json({ applications }, { headers: { "Cache-Control": "no-store" } });

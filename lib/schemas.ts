@@ -3,10 +3,32 @@ import { CLUB_COMMITTEES, POSITION_VALUES } from "../data/committees";
 
 export const positionSchema = z.enum(POSITION_VALUES);
 
+export function normalizeEgyptianPhone(input: string): string | null {
+  const digits = input.replace(/[^\d+]/g, "").trim();
+  if (!digits) return null;
+  if (/^01\d{9}$/.test(digits)) return `+2${digits}`;
+  if (/^\+201\d{9}$/.test(digits)) return digits;
+  if (/^201\d{9}$/.test(digits)) return `+${digits}`;
+  return null;
+}
+
+const egyptianPhoneSchema = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  return value.trim();
+}, z.string().min(1, "Phone number is required.").transform((value, ctx) => {
+  const normalized = normalizeEgyptianPhone(value);
+  if (!normalized) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enter a valid Egyptian phone number." });
+    return z.NEVER;
+  }
+  return normalized;
+}));
+
 export const joinApplicationSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
   academicNumber: z.string().trim().min(1).max(64),
+  phone: egyptianPhoneSchema,
   committees: z.array(z.enum(CLUB_COMMITTEES)).min(1).max(3).refine(
     (committees) => new Set(committees).size === committees.length,
     "Choose each committee only once.",

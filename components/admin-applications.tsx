@@ -9,6 +9,8 @@ type Application = {
   id: number | string;
   name: string;
   email: string;
+  phone?: string | null;
+  phone_number?: string | null;
   academicNumber?: string | null;
   academic_number?: string | null;
   committees: string[];
@@ -69,12 +71,14 @@ export function AdminApplications() {
         <div className="application-list">
           {applications.map((application) => {
             const academicNumber = application.academicNumber ?? application.academic_number ?? "";
+            const phone = application.phone ?? application.phone_number ?? "";
             return (
               <article className="application-card" key={application.id}>
                 <div className="application-card-heading">
                   <div>
                     <h2>{application.name}</h2>
                     <a href={`mailto:${application.email}`}>{application.email}</a>
+                    {phone && <p className="application-academic-number"><strong>{t("phone") ?? "Phone"}:</strong> <a href={`tel:${phone}`}>{phone}</a></p>}
                     {academicNumber && <p className="application-academic-number"><strong>{t("academicNumber")}:</strong> {academicNumber}</p>}
                   </div>
                   <time dateTime={application.created_at}>{new Date(application.created_at).toLocaleString(locale)}</time>
