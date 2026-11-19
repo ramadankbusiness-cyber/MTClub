@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import "leaflet/dist/leaflet.css";
-import { cairo, inter, spaceGrotesk } from "./fonts";
 
 const siteOrigin = process.env.NEXT_PUBLIC_APP_URL
   || process.env.NEXT_PUBLIC_SITE_URL
@@ -37,7 +36,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const locale = (await headers()).get("x-mt-locale") === "ar" ? "ar" : "en";
   return (
-    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} className={`${spaceGrotesk.variable} ${inter.variable} ${cairo.variable}`} suppressHydrationWarning>
+    <html lang={locale} dir={locale === "ar" ? "rtl" : "ltr"} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

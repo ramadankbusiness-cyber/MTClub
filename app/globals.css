@@ -1,6 +1,10 @@
 @import "tailwindcss";
+@import "./fonts.css";
 
 :root {
+  --font-space-grotesk: "Space Grotesk";
+  --font-inter: "Inter";
+  --font-cairo: "Cairo";
   color-scheme: light;
   --a: #239ba5;
   --b: #348b5a;
