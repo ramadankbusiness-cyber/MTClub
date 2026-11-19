@@ -21,7 +21,7 @@ async function GETInternal(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
   let query = supabase
     .from("join_applications")
-    .select("id, name, email, committees, message, created_at")
+    .select("id, name, email, academic_number, academicNumber, committees, message, created_at")
     .order("created_at", { ascending: false });
   if (committee) query = query.contains("committees", [committee]);
   const { data, error } = await query;
@@ -29,7 +29,11 @@ async function GETInternal(request: Request) {
     console.error("[Admin applications] Failed to load applications", error.message);
     return NextResponse.json({ error: "Could not load membership applications." }, { status: 503 });
   }
-  return NextResponse.json({ applications: data ?? [] }, { headers: { "Cache-Control": "no-store" } });
+  const applications = (data ?? []).map((application) => ({
+    ...application,
+    academicNumber: application.academicNumber ?? application.academic_number ?? null,
+  }));
+  return NextResponse.json({ applications }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export const GET = withApiErrorHandling(GETInternal, "/api/admin/applications");

@@ -28,9 +28,10 @@ export type ManagedTeamMember = {
 
 type FormState = {
   name: string; title: string; titleAr: string; position: PositionLevel; isMTC: boolean; committeeId: string;
-  bio: string; bioAr: string; website: string; linkedin: string; instagram: string; photoUrl: string; visible: boolean;
+  bio: string; bioAr: string; photoUrl: string; visible: boolean;
+  socialLinks: { website?: string; linkedin?: string; instagram?: string } | null;
 };
-const blank: FormState = { name: "", title: "", titleAr: "", position: "LEADER", isMTC: false, committeeId: "", bio: "", bioAr: "", website: "", linkedin: "", instagram: "", photoUrl: "", visible: true };
+const blank: FormState = { name: "", title: "", titleAr: "", position: "LEADER", isMTC: false, committeeId: "", bio: "", bioAr: "", photoUrl: "", visible: true, socialLinks: null };
 
 function groupKey(member: Pick<ManagedTeamMember, "isMTC" | "committeeId">) {
   return member.isMTC ? "mtc" : (member.committeeId ?? "none");
@@ -70,8 +71,8 @@ export function TeamManager({ initialMembers, committees }: { initialMembers: Ma
     setForm({
       name: member.name, title: member.title, titleAr: member.titleAr ?? "", position: member.position ?? "LEADER", isMTC: !!member.isMTC || member.committee?.key === "mtc",
       committeeId: member.committeeId ?? "", bio: member.bio ?? "", bioAr: member.bioAr ?? "",
-      website: member.socialLinks?.website ?? "", linkedin: member.socialLinks?.linkedin ?? "",
-      instagram: member.socialLinks?.instagram ?? "", photoUrl: member.photoUrl ?? "", visible: member.visible,
+      photoUrl: member.photoUrl ?? "", visible: member.visible,
+      socialLinks: member.socialLinks ?? null,
     });
     setPhoto(null);
     setFormLanguage("en");
@@ -113,7 +114,7 @@ export function TeamManager({ initialMembers, committees }: { initialMembers: Ma
       const payload = {
         name: form.name, title: form.title, titleAr: form.titleAr || null, position: form.position, isMTC: effectiveIsMTC,
         committeeId: form.committeeId || null, bio: form.bio || null, bioAr: form.bioAr || null,
-        socialLinks: { website: form.website, linkedin: form.linkedin, instagram: form.instagram },
+        socialLinks: form.socialLinks ?? undefined,
         photoUrl: photoUrl || null, visible: form.visible,
       };
       const response = await fetch(editingId ? `/api/team/${editingId}` : "/api/team", {
@@ -246,9 +247,6 @@ export function TeamManager({ initialMembers, committees }: { initialMembers: Ma
           {formLanguage === "en"
             ? <label className="admin-form-wide">{t("bioEn")}<textarea value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} maxLength={500} rows={3} /></label>
             : <label className="admin-form-wide" lang="ar">{t("bioAr")}<textarea value={form.bioAr} onChange={(event) => setForm({ ...form, bioAr: event.target.value })} dir="rtl" maxLength={500} rows={3} /></label>}
-          <label>{t("website")}<input type="url" value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} /></label>
-          <label>{t("linkedin")}<input type="url" value={form.linkedin} onChange={(event) => setForm({ ...form, linkedin: event.target.value })} /></label>
-          <label>{t("instagram")}<input type="url" value={form.instagram} onChange={(event) => setForm({ ...form, instagram: event.target.value })} /></label>
           <label className="visibility-control"><input type="checkbox" checked={form.visible} onChange={(event) => setForm({ ...form, visible: event.target.checked })} />{t("show")}</label>
         </div>
         {message && <p className="form-error" role="alert">{message}</p>}

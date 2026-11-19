@@ -147,7 +147,7 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
             <h3>{session.title}</h3>
             <p>{new Date(session.startsAt).toLocaleString(locale)} – {new Date(session.endsAt).toLocaleString(locale)}</p>
             <span>{t("checkIns", { count: session.recordCount })} · {t("lateAfterShort", { minutes: session.lateAfterMinutes })}</span>
-            <div className="attendance-session-actions"><LiveCheckIns sessionId={session.id} /><a href="/api/admin/attendance/export">{t("exportCsv")}</a></div>
+            <div className="attendance-session-actions"><LiveCheckIns sessionId={session.id} /><button type="button" onClick={() => window.location.assign("/api/admin/attendance/export")}>{t("exportCsv")}</button></div>
           </div>
           <div className="attendance-session-tools">
             {isAdmin && <AttendanceQr session={session} />}

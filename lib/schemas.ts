@@ -6,6 +6,7 @@ export const positionSchema = z.enum(POSITION_VALUES);
 export const joinApplicationSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+  academicNumber: z.string().trim().min(1).max(64),
   committees: z.array(z.enum(CLUB_COMMITTEES)).min(1).max(3).refine(
     (committees) => new Set(committees).size === committees.length,
     "Choose each committee only once.",
@@ -125,19 +126,26 @@ export const eventSchema = z.object({
   location: z.string().trim().max(250).optional().nullable(),
   committeeId: z.string().optional().nullable(),
   published: z.boolean().default(true),
+  isOpen: z.boolean().default(true),
+  qrAttendanceOpen: z.boolean().default(false),
   ...zoneCaptureSchema.shape,
 }).refine((value) => !value.endsAt || value.endsAt > value.startsAt, {
   message: "End time must be after the event start",
   path: ["endsAt"],
+}).refine((value) => value.isOpen || !value.qrAttendanceOpen, {
+  message: "QR attendance must be closed when the event is closed.",
+  path: ["qrAttendanceOpen"],
 });
 
 export const attendanceSessionSchema = z.object({
   title: z.string().trim().min(2).max(120),
+  eventId: z.string().optional().nullable(),
   committeeId: z.string().optional().nullable(),
   startsAt: z.coerce.date(),
   endsAt: z.coerce.date(),
   lateAfterMinutes: z.number().int().min(0).max(240).default(10),
   qrMode: z.enum(["ROTATING", "STATIC"]).default("ROTATING"),
+  qrEnabled: z.boolean().default(true),
   ...zoneCaptureSchema.shape,
 }).refine((value) => value.endsAt > value.startsAt, {
   message: "End time must be after start time",

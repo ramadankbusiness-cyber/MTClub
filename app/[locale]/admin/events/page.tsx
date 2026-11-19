@@ -22,7 +22,18 @@ export default async function AdminEventsPage({ params }: Props) {
   const [events, committees] = await Promise.all([
     prisma.event.findMany({
       where: isAdmin ? {} : { committeeId: access.user.committeeId },
-      include: { committee: { select: { id: true, name: true } } },
+      include: {
+        committee: { select: { id: true, name: true } },
+        attendanceSessions: {
+          include: {
+            committee: { select: { id: true, name: true } },
+            zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
+            event: { select: { id: true, isOpen: true, qrAttendanceOpen: true } },
+            _count: { select: { records: true } },
+          },
+          orderBy: { startsAt: "asc" },
+        },
+      },
       orderBy: { startsAt: "desc" },
     }).then((events) =>
       events.map((event) => ({
@@ -30,6 +41,14 @@ export default async function AdminEventsPage({ params }: Props) {
         centerLat: event.centerLat ?? 30.0444,
         centerLng: event.centerLng ?? 31.2357,
         radiusMeters: event.radiusMeters ?? 100,
+        isOpen: event.isOpen ?? true,
+        qrAttendanceOpen: event.qrAttendanceOpen ?? false,
+        attendanceSessions: (event.attendanceSessions ?? []).map((session) => ({
+          ...session,
+          startsAt: session.startsAt.toISOString(),
+          endsAt: session.endsAt.toISOString(),
+          recordCount: session._count.records,
+        })),
       }))
     ),
     listClubCommittees(isAdmin ? undefined : access.user.committeeId),

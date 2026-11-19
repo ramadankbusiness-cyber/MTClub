@@ -6,9 +6,11 @@ import { useLocale, useTranslations } from "next-intl";
 import { CommitteeSelect } from "@/components/committee-select";
 
 type Application = {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
+  academicNumber?: string | null;
+  academic_number?: string | null;
   committees: string[];
   message: string;
   created_at: string;
@@ -65,18 +67,25 @@ export function AdminApplications() {
       {error && <p className="form-error" role="alert">{error}</p>}
       {loading ? <p className="empty-note" role="status">{t("loading")}</p> : (
         <div className="application-list">
-          {applications.map((application) => (
-            <article className="application-card" key={application.id}>
-              <div className="application-card-heading">
-                <div><h2>{application.name}</h2><a href={`mailto:${application.email}`}>{application.email}</a></div>
-                <time dateTime={application.created_at}>{new Date(application.created_at).toLocaleDateString(locale)}</time>
-              </div>
-              <ul className="join-committee-pills application-committee-pills" aria-label={t("selected")}>
-                {application.committees.map((item) => <li key={item}><span>{item}</span></li>)}
-              </ul>
-              <p>{application.message}</p>
-            </article>
-          ))}
+          {applications.map((application) => {
+            const academicNumber = application.academicNumber ?? application.academic_number ?? "";
+            return (
+              <article className="application-card" key={application.id}>
+                <div className="application-card-heading">
+                  <div>
+                    <h2>{application.name}</h2>
+                    <a href={`mailto:${application.email}`}>{application.email}</a>
+                    {academicNumber && <p className="application-academic-number"><strong>{t("academicNumber")}:</strong> {academicNumber}</p>}
+                  </div>
+                  <time dateTime={application.created_at}>{new Date(application.created_at).toLocaleString(locale)}</time>
+                </div>
+                <ul className="join-committee-pills application-committee-pills" aria-label={t("selected")}>
+                  {application.committees.map((item) => <li key={item}><span>{item}</span></li>)}
+                </ul>
+                <p>{application.message}</p>
+              </article>
+            );
+          })}
           {!applications.length && !error && <p className="empty-note">{t("empty")}</p>}
         </div>
       )}

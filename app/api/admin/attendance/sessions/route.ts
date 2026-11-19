@@ -26,6 +26,7 @@ async function GETInternal() {
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
+      event: { select: { id: true, title: true, isOpen: true, qrAttendanceOpen: true, startsAt: true, endsAt: true } },
       _count: { select: { records: true } },
     },
     orderBy: { startsAt: "desc" },
@@ -53,6 +54,7 @@ async function POSTInternal(request: Request) {
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
+      event: { select: { id: true, title: true, isOpen: true, qrAttendanceOpen: true, startsAt: true, endsAt: true } },
     },
   });
   await writeAuditLog({ actorId: access.user.id, action: "attendance.session.create", targetType: "AttendanceSession", targetId: session.id });

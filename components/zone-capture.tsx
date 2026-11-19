@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Circle, CircleMarker, Popup, useMapEvents } from "react-leaflet";
 import { useAppToast } from "@/components/app-toast-provider";
 import { useTranslations } from "next-intl";
@@ -30,6 +30,15 @@ function positionToValue(position: GeolocationPosition): { latitude: number; lon
   };
 }
 
+function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(event) {
+      onPick(event.latlng.lat, event.latlng.lng);
+    },
+  });
+  return null;
+}
+
 export default function ZoneCapture({
   value,
   onChange,
@@ -39,6 +48,8 @@ export default function ZoneCapture({
 }) {
   const t = useTranslations("site.attendance");
   const showToast = useAppToast();
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
@@ -47,7 +58,7 @@ export default function ZoneCapture({
     value.latitude ?? DEFAULT_CENTER[0],
     value.longitude ?? DEFAULT_CENTER[1],
   ]);
-  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [accuracy, setAccuracy] = useState<number | null>(value.accuracy ?? null);
   const [radiusMeters, setRadiusMeters] = useState(value.radiusMeters ?? DEFAULT_RADIUS);
   const [placeName, setPlaceName] = useState(value.placeName ?? null);
   const [saveAsZone, setSaveAsZone] = useState(!!value.saveAsZone);
@@ -56,17 +67,24 @@ export default function ZoneCapture({
   const accuracyWarning = accuracy !== null && accuracy > POOR_ACCURACY_METERS;
 
   useEffect(() => {
-    onChange({
+    onChangeRef.current({
       latitude: point[0],
       longitude: point[1],
-      radiusMeters: Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, radiusMeters)),
+      radiusMeters: Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS)),
       accuracy,
       placeName: placeName || null,
       saveAsZone,
       zoneName: saveAsZone ? (zoneName || null) : null,
       zoneId: saveAsZone ? (value.zoneId || null) : null,
     });
-  }, [point, accuracy, radiusMeters, placeName, saveAsZone, zoneName, onChange]);
+  }, [point, accuracy, radiusMeters, placeName, saveAsZone, zoneName, value.zoneId]);
+
+  const handlePick = useCallback((lat: number, lng: number) => {
+    setPoint([lat, lng]);
+    setAccuracy(null);
+    setManual(true);
+    setLocateError(null);
+  }, []);
 
   const requestLocation = useCallback(() => {
     if (!("geolocation" in navigator)) {
@@ -109,32 +127,24 @@ export default function ZoneCapture({
   const retry = () => {
     setLocateError(null);
     setManual(false);
-    void requestLocation();
+    requestLocation();
   };
 
-  const presets = [MIN_RADIUS, 50, DEFAULT_RADIUS, 200, MAX_RADIUS];
-
-  useMapEvents({
-    click(event) {
-      setPoint([event.latlng.lat, event.latlng.lng]);
-      setAccuracy(null);
-      setManual(true);
-      setLocateError(null);
-    },
-  });
+  const presets = [10, 50, 100, 200, 500];
 
   return (
     <section className="zone-capture" aria-label="Attendance zone">
       <h2>{t("zoneSetup")}</h2>
       <div className="zone-actions">
         <button
+          type="button"
           className="button button-primary"
           disabled={locating}
           onClick={retry}
         >
           {locating ? t("locating") : t("useMyLocation")}
         </button>
-        {manual || locateError ? (
+        {(manual || locateError) ? (
           <button type="button" className="button button-secondary" onClick={() => setManual((v) => !v)}>
             {t("adjustPin")}
           </button>
@@ -148,14 +158,15 @@ export default function ZoneCapture({
       )}
       <div className="zone-map-wrap">
         <MapContainer center={point} zoom={16} scrollWheelZoom>
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <Marker position={point}>
-              <Popup>{t("zoneCenter")}</Popup>
-            </Marker>
-          <Circle center={point} radius={radiusMeters} pathOptions={{ color: "var(--a)", weight: 2, fillOpacity: 0.14 }} />
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapClickHandler onPick={handlePick} />
+          <Marker position={point}>
+            <Popup>{t("zoneCenter")}</Popup>
+          </Marker>
+          <Circle center={point} radius={Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS))} pathOptions={{ color: "var(--a)", weight: 2, fillOpacity: 0.14 }} />
           <CircleMarker center={point} radius={7} pathOptions={{ color: "#fff", weight: 2, fillColor: "#176f78", fillOpacity: 1 }} />
         </MapContainer>
       </div>
@@ -186,7 +197,7 @@ export default function ZoneCapture({
             <button
               key={meters}
               type="button"
-              className={`button ${radiusMeters === meters ? "button-primary" : "button-secondary"} radius-pill`}
+              className={`button ${Number(radiusMeters) === meters ? "button-primary" : "button-secondary"} radius-pill`}
               onClick={() => setRadiusMeters(meters)}
             >
               {meters} m
@@ -194,13 +205,13 @@ export default function ZoneCapture({
           ))}
         </div>
         <label className="radius-slider-label">
-          {t("zoneRadius")} ({radiusMeters} m)
+          {t("zoneRadius")} ({Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS))} m)
           <input
             type="range"
             min={MIN_RADIUS}
             max={MAX_RADIUS}
             step={10}
-            value={radiusMeters}
+            value={Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS))}
             onChange={(event) => setRadiusMeters(Number(event.target.value))}
           />
         </label>

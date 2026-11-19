@@ -40,24 +40,11 @@
       "ctaTitle": "Ready to be part of it?",
       "ctaText": "Membership is free and open to everyone who loves learning.",
       "ctaButton": "Join MT Club",
-      "stats": [
-        {
-          "value": "250+",
-          "label": "Members"
-        },
-        {
-          "value": "40+",
-          "label": "Events held"
-        },
-        {
-          "value": "15",
-          "label": "Projects shipped"
-        },
-        {
-          "value": "12",
-          "label": "Partners"
-        }
-      ],
+      "statsLabels": {
+        "members": "Members",
+        "committees": "Committees",
+        "events": "Events"
+      },
       "features": [
         {
           "title": "Learn",
@@ -106,10 +93,11 @@
       "lead": "Tell us a little about yourself and what you'd love to explore. We'd be happy to meet you.",
       "name": "Full name",
       "email": "Email address",
+      "academicNumber": "Academic number",
       "interest": "What are you interested in?",
       "select": "Choose a committee",
-      "committeeHint": "Choose up to 3 committees.",
-      "committeeLimit": "You can choose up to 3 committees.",
+      "committeeHint": "Choose between 1 and 3 committees.",
+      "committeeLimit": "You can choose between 1 and 3 committees.",
       "message": "A message for us",
       "messageHint": "What would you like to learn or make with the club?",
       "submit": "Send your application",
@@ -118,7 +106,8 @@
       "successText": "Your application has been sent. We look forward to meeting you.",
       "error": "We couldn't send your application right now. Please try again later.",
       "required": "Please complete all required fields.",
-      "invalidEmail": "Enter a valid email address."
+      "invalidEmail": "Enter a valid email address.",
+      "academicRequired": "Enter a valid academic number."
     },
     "login": {
       "welcome": "Welcome",
@@ -538,14 +527,21 @@
         "create": "Create an event",
         "titleEn": "Event title (English)",
         "titleAr": "Event title (Arabic)",
+        "english": "English",
+        "arabic": "Arabic",
         "starts": "Starts at",
         "ends": "Ends at (optional)",
         "location": "Location",
+        "placeName": "Place name (optional)",
         "committee": "Committee",
         "allMembers": "All members",
         "descriptionEn": "Description (English)",
         "descriptionAr": "Description (Arabic)",
         "publish": "Publish this event",
+        "eventOpen": "Event open",
+        "eventClosed": "Event closed",
+        "qrAttendanceOpen": "QR attendance open",
+        "qrAttendanceClosed": "QR attendance closed",
         "save": "Save changes",
         "createButton": "Create event",
         "saving": "Saving…",
@@ -584,6 +580,7 @@
         "all": "All committees",
         "loading": "Loading applications…",
         "selected": "Selected committees",
+        "academicNumber": "Academic number",
         "loadError": "Could not load applications. Please try again.",
         "empty": "No applications found for this committee."
       },

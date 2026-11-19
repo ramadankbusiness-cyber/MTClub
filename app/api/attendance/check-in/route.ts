@@ -24,7 +24,7 @@ async function POSTInternal(request: Request) {
   const token = verifyQrToken(input.token, now.getTime());
   const sessionId = token?.sessionId;
   const session = sessionId
-    ? await prisma.attendanceSession.findUnique({ where: { id: sessionId }, include: { zone: true } })
+    ? await prisma.attendanceSession.findUnique({ where: { id: sessionId }, include: { zone: true, event: { select: { id: true, isOpen: true, qrAttendanceOpen: true } } } })
     : null;
   const ipHash = hashIdentifier(requestIp(request));
   const deviceHash = hashIdentifier(input.deviceId);
@@ -56,6 +56,11 @@ async function POSTInternal(request: Request) {
     tokenRecord.expiresAt <= now || tokenRecord.static !== token.static ||
     (session.qrMode === "STATIC") !== token.static
   ) return reject("This attendance QR code is invalid or has expired.");
+  if (session.event) {
+    if (!session.event.isOpen) return reject("This event is closed for attendance.", 403);
+    if (!session.event.qrAttendanceOpen) return reject("QR attendance scanning is currently closed for this event.", 403);
+  }
+  if (session.qrEnabled === false) return reject("QR attendance scanning is currently closed for this session.", 403);
   if (session.startsAt > now || session.endsAt <= now) return reject("This attendance session is not open.");
   if (session.committeeId && user.committeeId !== session.committeeId) {
     return reject("You are not eligible to check in to this session.", 403);

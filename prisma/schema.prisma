@@ -183,11 +183,14 @@ model Event {
   committeeId     String?
   createdById     String
   published       Boolean  @default(true)
+  isOpen          Boolean  @default(true)
+  qrAttendanceOpen Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   committee       Committee? @relation(fields: [committeeId], references: [id], onDelete: SetNull)
   zone            Zone?      @relation("EventZone", fields: [zoneId], references: [id], onDelete: SetNull)
   createdBy       User     @relation("EventAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  attendanceSessions AttendanceSession[]
 
   @@index([published, startsAt])
   @@index([committeeId, startsAt])
@@ -196,6 +199,7 @@ model Event {
 model AttendanceSession {
   id                String   @id @default(cuid())
   title             String
+  eventId           String?
   committeeId       String?
   zoneId            String?
   placeName         String?
@@ -207,9 +211,11 @@ model AttendanceSession {
   endsAt            DateTime
   lateAfterMinutes  Int      @default(10)
   qrMode            QrMode   @default(ROTATING)
+  qrEnabled         Boolean  @default(true)
   createdById       String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  event             Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
   committee         Committee? @relation(fields: [committeeId], references: [id], onDelete: SetNull)
   zone              Zone?    @relation(fields: [zoneId], references: [id], onDelete: SetNull)
   records           AttendanceRecord[]
@@ -219,6 +225,7 @@ model AttendanceSession {
 
   @@index([startsAt, endsAt])
   @@index([committeeId, startsAt])
+  @@index([eventId, startsAt])
 }
 
 model AttendanceRecord {

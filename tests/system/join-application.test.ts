@@ -6,6 +6,7 @@ describe("membership application committees", () => {
   const application = {
     name: "Test Applicant",
     email: "applicant@example.com",
+    academicNumber: "20260001",
     message: "I would like to join the club.",
   };
 

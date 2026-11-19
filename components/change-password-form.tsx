@@ -42,8 +42,8 @@ export function ChangePasswordForm() {
 
   return (
     <form className="account-form" onSubmit={submit}>
-      <label>{t("current")}<input type="password" name="currentPassword" autoComplete="current-password" required /></label>
-      <label>{t("new")}<input type="password" name="newPassword" autoComplete="new-password" minLength={12} required /></label>
+      <label>{t("current")}<input type="password" name="currentPassword" autoComplete="current-password" placeholder={t("current")} required /></label>
+      <label>{t("new")}<input type="password" name="newPassword" autoComplete="new-password" minLength={12} placeholder={t("new")} required /></label>
       <p className="form-footnote">{t("rules")}</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="button button-primary button-large form-submit" disabled={busy}>{busy ? t("saving") : t("submit")}</button>

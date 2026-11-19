@@ -1,9 +1,4 @@
-export const stats = [
-  { value: "250+", label: "Members", labelAr: "عضو" },
-  { value: "40+", label: "Events held", labelAr: "فعالية" },
-  { value: "15", label: "Projects shipped", labelAr: "مشروعًا" },
-  { value: "12", label: "Partners", labelAr: "شريكًا" },
-];
+export const stats = [];
 
 export const features = [
   {
