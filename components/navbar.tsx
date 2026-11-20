@@ -54,7 +54,7 @@ export function Navbar() {
             <div className="account-actions">
               <NotificationBell />
               <button className="avatar-button" type="button" aria-expanded={accountMenuOpen} aria-label={text.nav.account} onClick={() => setAccountMenuOpen((open) => !open)}>
-                {session.user.image ? <Image src={session.user.image} alt="" width={34} height={34} /> : <Image src="/mt-logo.png" alt="" width={34} height={34} />}
+                {session.user.image ? <Image src={session.user.image} alt={session.user.name ? `${session.user.name} profile photo` : "Profile photo"} width={34} height={34} /> : <Image src="/mt-logo.png" alt="MT Club logo" width={34} height={34} />}
               </button>
               {accountMenuOpen && (
                 <div className="account-menu">

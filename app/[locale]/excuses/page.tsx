@@ -8,7 +8,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "طلبات الأعذار" : "Excuse requests" };
+  return { title: locale === "ar" ? "طلبات الأعذار" : "Excuse requests", robots: { index: false, follow: false } };
 }
 
 export default async function ExcusesPage({ params }: Props) {

@@ -1,13 +1,21 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { ForgotPasswordForm } from "@/components/password-reset-forms";
 import { getTranslations } from "next-intl/server";
+import { buildPageMetadata, publicPageDescriptions } from "@/lib/seo";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  return { title: locale === "ar" ? "إعادة تعيين كلمة المرور" : "Forgot password" };
+  if (locale !== "en" && locale !== "ar") return {};
+  return buildPageMetadata({
+    locale,
+    path: "/forgot-password",
+    titleTagline: { en: "Reset your password", ar: "إعادة تعيين كلمة المرور" },
+    description: publicPageDescriptions.forgotPassword,
+  });
 }
 
 export default async function ForgotPasswordPage({ params }: Props) {
@@ -18,7 +26,7 @@ export default async function ForgotPasswordPage({ params }: Props) {
       <div className="login-glow login-glow-a" aria-hidden="true" />
       <div className="login-glow login-glow-b" aria-hidden="true" />
       <section className="login-card" aria-labelledby="forgot-password-title">
-        <div className="login-brand"><Image src="/mt-logo.png" alt="" width={42} height={42} priority /><span>MT Club</span></div>
+        <div className="login-brand"><Image src="/mt-logo.png" alt="MT Club logo" width={42} height={42} priority /><span>MT Club</span></div>
         <h1 id="forgot-password-title">{t("requestTitle")}</h1>
         <p className="login-subtitle">{t("requestLead")}</p>
         <ForgotPasswordForm />

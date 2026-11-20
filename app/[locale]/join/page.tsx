@@ -1,17 +1,20 @@
-"use client";
+import type { Metadata } from "next";
+import { JoinPageClient } from "@/components/join-page-client";
+import { buildPageMetadata, publicPageDescriptions } from "@/lib/seo";
 
-import { JoinForm } from "@/components/join-form";
-import { SectionHeading } from "@/components/section-heading";
-import { useSite } from "@/components/site-provider";
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  if (locale !== "en" && locale !== "ar") return {};
+  return buildPageMetadata({
+    locale,
+    path: "/join",
+    titleTagline: { en: "Join the club", ar: "انضم إلى النادي" },
+    description: publicPageDescriptions.join,
+  });
+}
 
 export default function JoinPage() {
-  const { text } = useSite();
-  return (
-    <main id="main-content" className="inner-page">
-      <section className="content-section page-intro join-intro">
-        <SectionHeading eyebrow={text.join.eyebrow} title={text.join.title} lead={text.join.lead} />
-        <JoinForm />
-      </section>
-    </main>
-  );
+  return <JoinPageClient />;
 }

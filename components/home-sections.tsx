@@ -11,7 +11,7 @@ type HomeStat = { value: string; label: string };
 
 export function HomeContent({ stats = [] }: { stats?: HomeStat[] }) {
   const { text, language } = useSite();
-  const home = text.home;
+  const home = text.home as typeof text.home & { intro?: string };
   const Arrow = language === "ar" ? ArrowLeft : ArrowRight;
   return (
     <>
@@ -22,6 +22,7 @@ export function HomeContent({ stats = [] }: { stats?: HomeStat[] }) {
           <p className="status-pill"><span className="status-dot" />{home.badge}</p>
           <h1>{home.title}</h1>
           <p className="hero-lead">{home.lead}</p>
+          {home.intro ? <p className="hero-lead">{home.intro}</p> : null}
           <div className="hero-actions">
             <Link className="button button-primary button-large" href="/join">{home.become}<Arrow size={17} aria-hidden="true" /></Link>
             <Link className="button button-secondary button-large" href="/events">{home.eventsButton}</Link>

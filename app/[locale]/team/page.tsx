@@ -1,12 +1,26 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { team as fallbackTeam } from "@/data/team";
 import { TeamManager, type ManagedTeamMember } from "@/components/team-manager";
 import { TeamDirectory } from "@/components/team-directory";
 import { listClubCommittees } from "@/lib/committees";
+import { buildPageMetadata, publicPageDescriptions } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Team" };
+
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  if (locale !== "en" && locale !== "ar") return {};
+  return buildPageMetadata({
+    locale,
+    path: "/team",
+    titleTagline: { en: "Meet the team", ar: "تعرّف على الفريق" },
+    description: publicPageDescriptions.team,
+  });
+}
 
 export default async function TeamPage() {
   const user = process.env.DATABASE_URL ? await getCurrentUser() : null;

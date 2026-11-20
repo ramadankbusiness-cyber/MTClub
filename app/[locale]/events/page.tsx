@@ -1,9 +1,23 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { events as fallbackEvents } from "@/data/events";
 import { EventsDirectory } from "@/components/events-directory";
+import { buildPageMetadata, publicPageDescriptions } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Events" };
+
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  if (locale !== "en" && locale !== "ar") return {};
+  return buildPageMetadata({
+    locale,
+    path: "/events",
+    titleTagline: { en: "Events and workshops", ar: "الفعاليات وورش العمل" },
+    description: publicPageDescriptions.events,
+  });
+}
 
 export default async function EventsPage() {
   const events = process.env.DATABASE_URL

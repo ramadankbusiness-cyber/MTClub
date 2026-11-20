@@ -10,7 +10,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "إرسال الإشعارات" : "Send notifications" };
+  return { title: locale === "ar" ? "إرسال الإشعارات" : "Send notifications", robots: { index: false, follow: false } };
 }
 
 export default async function AdminNotificationsPage({ params }: Props) {

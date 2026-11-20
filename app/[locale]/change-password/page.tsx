@@ -9,7 +9,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "تغيير كلمة المرور" : "Change password" };
+  return { title: locale === "ar" ? "تغيير كلمة المرور" : "Change password", robots: { index: false, follow: false } };
 }
 
 export default async function ChangePasswordPage({ params }: Props) {

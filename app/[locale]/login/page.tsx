@@ -1,18 +1,27 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { LoginForm } from "@/components/login-form";
 import { safeReturnPath } from "@/lib/login";
 import { getTranslations } from "next-intl/server";
+import { buildPageMetadata, publicPageDescriptions } from "@/lib/seo";
 
 type LoginPageProps = {
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ callbackUrl?: string | string[]; message?: string | string[] }>;
 };
 
-export async function generateMetadata({ params }: LoginPageProps) {
+export async function generateMetadata({ params }: LoginPageProps): Promise<Metadata> {
   const { locale } = await params;
-  return { title: locale === "ar" ? "تسجيل الدخول" : "Log in" };
+  if (locale !== "en" && locale !== "ar") return {};
+  return buildPageMetadata({
+    locale,
+    path: "/login",
+    titleTagline: { en: "Log in", ar: "تسجيل الدخول" },
+    description: publicPageDescriptions.login,
+    noIndex: true,
+  });
 }
 
 export default async function LoginPage({ params, searchParams }: LoginPageProps) {
@@ -30,7 +39,7 @@ export default async function LoginPage({ params, searchParams }: LoginPageProps
       <div className="login-glow login-glow-b" aria-hidden="true" />
       <section className="login-card" aria-labelledby="login-title">
         <div className="login-brand">
-          <Image src="/mt-logo.png" alt="" width={42} height={42} priority />
+          <Image src="/mt-logo.png" alt="MT Club logo" width={42} height={42} priority />
           <span>MT Club</span>
         </div>
         <h1 id="login-title">{t("welcome")} <span className="gradient-text">{t("back")}</span></h1>

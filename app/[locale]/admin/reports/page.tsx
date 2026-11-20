@@ -30,7 +30,7 @@ function dateInputValue(date: Date) {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "تقارير الحضور" : "Attendance reports" };
+  return { title: locale === "ar" ? "تقارير الحضور" : "Attendance reports", robots: { index: false, follow: false } };
 }
 
 export default async function AttendanceReportsPage({ params, searchParams }: Props) {

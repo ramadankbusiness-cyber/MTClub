@@ -7,7 +7,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "مسح رمز الحضور" : "Scan QR" };
+  return { title: locale === "ar" ? "مسح رمز الحضور" : "Scan QR", robots: { index: false, follow: false } };
 }
 
 export default async function ScanAttendancePage({ params }: Props) {

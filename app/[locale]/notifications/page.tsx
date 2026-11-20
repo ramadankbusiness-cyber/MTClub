@@ -7,7 +7,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "الإشعارات" : "Notifications" };
+  return { title: locale === "ar" ? "الإشعارات" : "Notifications", robots: { index: false, follow: false } };
 }
 
 export default async function NotificationsPage({ params }: Props) {

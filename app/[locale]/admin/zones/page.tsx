@@ -10,7 +10,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "مناطق الحضور" : "Attendance zones" };
+  return { title: locale === "ar" ? "مناطق الحضور" : "Attendance zones", robots: { index: false, follow: false } };
 }
 
 export default async function AdminZonesPage({ params }: Props) {

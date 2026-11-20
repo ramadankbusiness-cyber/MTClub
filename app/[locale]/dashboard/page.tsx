@@ -10,7 +10,7 @@ type Props = { params: Promise<{ locale: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  return { title: locale === "ar" ? "لوحة التحكم" : "Dashboard" };
+  return { title: locale === "ar" ? "لوحة التحكم" : "Dashboard", robots: { index: false, follow: false } };
 }
 
 function percentage(attended: number, eligible: number) {
