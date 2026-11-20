@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { absoluteUrl, siteConfig } from "@/config/site";
 
 const description =
-  "MT Club is a student community in Borg El Arab, Alexandria where members learn, create, and grow together through workshops, projects, and events.";
+  "MT Club (Medical Technology) is a community where members learn, create, and grow together through workshops, projects, and events across its committees.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),

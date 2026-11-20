@@ -40,7 +40,7 @@ export default function OpenGraphImage() {
         </div>
         <div style={{ fontSize: 72, fontWeight: 800, lineHeight: 1.05 }}>MT Club</div>
         <div style={{ fontSize: 34, marginTop: 20, maxWidth: 900, lineHeight: 1.3, color: "rgba(255,255,255,0.92)" }}>
-          Learn, create, and grow together in Borg El Arab, Alexandria.
+          Learn, create, and grow together through Medical Technology.
         </div>
       </div>
     ),

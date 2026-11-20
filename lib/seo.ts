@@ -11,36 +11,36 @@ type PublicPageMeta = {
 
 export const publicPageDescriptions = {
   home: {
-    en: "MT Club is a student community in Borg El Arab, Alexandria where members learn, create, and grow together through workshops, projects, and events.",
-    ar: "نادي MT مجتمع طلابي في برج العرب بالإسكندرية يجمع الأعضاء للتعلم والإبداع والنمو معًا عبر ورش العمل والمشاريع والفعاليات.",
+    en: "MT Club (Medical Technology) is a community where members learn, create, and grow together through workshops, projects, and events across its committees.",
+    ar: "نادي MT (التكنولوجيا الطبية) هو مجتمع يجمع الأعضاء للتعلم والإبداع والنمو معًا من خلال ورش العمل والمشاريع والفعاليات والأنشطة المتنوعة في مختلف لجانه.",
   },
   about: {
-    en: "Learn what MT Club is, what MT stands for, and how our committees help members learn, create, and connect in Borg El Arab, Alexandria.",
-    ar: "تعرّف على نادي MT، ومعنى اسم MT، وكيف تساعد لجاننا الأعضاء على التعلم والإبداع والتواصل في برج العرب بالإسكندرية.",
+    en: "Learn what MT Club is, what MT stands for as Medical Technology, and how its committees help members learn, create, connect, collaborate, and grow together.",
+    ar: "تعرّف على نادي MT وما يرمز إليه اسم التكنولوجيا الطبية، وكيف تساعد لجانه الأعضاء على التعلم والإبداع والتواصل والتعاون والنمو معًا داخل مجتمع النادي.",
   },
   events: {
-    en: "Explore upcoming and recent MT Club events in Borg El Arab, Alexandria, including workshops, activities, and community gatherings for members.",
-    ar: "استكشف فعاليات نادي MT القادمة والسابقة في برج العرب بالإسكندرية، بما في ذلك ورش العمل والأنشطة ولقاءات المجتمع للأعضاء.",
+    en: "Explore upcoming and recent MT Club events, including workshops, projects, activities, and community gatherings organized for members across its committees.",
+    ar: "استكشف فعاليات نادي MT القادمة والسابقة، بما في ذلك ورش العمل والمشاريع والأنشطة ولقاءات المجتمع التي تُنظَّم لأعضاء النادي في مختلف اللجان.",
   },
   team: {
-    en: "Meet the MT Club team and committee leaders in Borg El Arab, Alexandria who support members, organize activities, and build community.",
-    ar: "تعرّف على فريق نادي MT وقادة اللجان في برج العرب بالإسكندرية الذين يدعمون الأعضاء وينظمون الأنشطة ويبنون المجتمع.",
+    en: "Meet the MT Club team and committee leaders who support members, organize activities and events, and help the Medical Technology community grow together.",
+    ar: "تعرّف على فريق نادي MT وقادة لجانه الذين يدعمون الأعضاء وينظمون الأنشطة والفعاليات ويساعدون مجتمع التكنولوجيا الطبية على التعلم والنمو معًا باستمرار.",
   },
   join: {
-    en: "Apply to join MT Club in Borg El Arab, Alexandria. Choose committees, share your interests, and become part of a creative student community.",
-    ar: "قدّم للانضمام إلى نادي MT في برج العرب بالإسكندرية. اختر اللجان وشارك اهتماماتك وكن جزءًا من مجتمع طلابي إبداعي.",
+    en: "Apply to join MT Club, the Medical Technology community. Choose committees, share your interests, and learn, create, collaborate, and grow with members.",
+    ar: "قدّم للانضمام إلى نادي MT، مجتمع التكنولوجيا الطبية. اختر اللجان وشارك اهتماماتك وتعلّم وابدع وتعاون وانمُ مع أعضاء النادي في أنشطته المتنوعة.",
   },
   forgotPassword: {
-    en: "Request a secure password reset link for your MT Club account so you can regain access and continue participating in club activities.",
-    ar: "اطلب رابطًا آمنًا لإعادة تعيين كلمة المرور لحسابك في نادي MT لاستعادة الوصول ومتابعة المشاركة في أنشطة النادي.",
+    en: "Request a secure password reset link for your MT Club account to regain access to your member dashboard, attendance, notifications, and club activities.",
+    ar: "اطلب رابطًا آمنًا لإعادة تعيين كلمة مرور حسابك في نادي MT لاستعادة الوصول إلى لوحة التحكم والحضور والإشعارات وأنشطة الأعضاء في أنشطة النادي.",
   },
   resetPassword: {
-    en: "Set a new password for your MT Club account securely and return to your dashboard, events, and member activities in the club.",
-    ar: "عيّن كلمة مرور جديدة لحسابك في نادي MT بأمان وعد إلى لوحة التحكم والفعاليات وأنشطة الأعضاء في النادي.",
+    en: "Set a new password for your MT Club account securely, then return to your member dashboard, attendance, notifications, profile, and club activities.",
+    ar: "عيّن كلمة مرور جديدة لحسابك في نادي MT بأمان، ثم عُد إلى لوحة تحكم الأعضاء والحضور والإشعارات والملف الشخصي وأنشطة النادي الخاصة بالأعضاء.",
   },
   login: {
-    en: "Log in to your MT Club account to access your dashboard, attendance, notifications, and member tools in Borg El Arab, Alexandria.",
-    ar: "سجّل الدخول إلى حسابك في نادي MT للوصول إلى لوحة التحكم والحضور والإشعارات وأدوات الأعضاء في برج العرب بالإسكندرية.",
+    en: "Log in to your MT Club account to access your dashboard, attendance, notifications, profile, and member tools for Medical Technology club activities.",
+    ar: "سجّل الدخول إلى حسابك في نادي MT للوصول إلى لوحة التحكم والحضور والإشعارات والملف الشخصي وأدوات الأعضاء لأنشطة نادي التكنولوجيا الطبية.",
   },
 } as const;
 
