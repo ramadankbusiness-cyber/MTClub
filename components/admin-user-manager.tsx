@@ -155,9 +155,9 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
 
   return (
     <div className="admin-users">
-      <form className="team-edit-form" onSubmit={createUser}>
+      <form className="team-edit-form compact-form" onSubmit={createUser}>
         <h2>{t("createTitle")}</h2>
-        <div className="admin-form-grid">
+        <div className="admin-form-grid compact-form-grid">
           <label>{t("name")}<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required minLength={2} maxLength={100} /></label>
           <label>{t("email")}<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required maxLength={254} /></label>
           <label>Phone Number<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+20 100 000 0000" maxLength={32} /></label>
@@ -165,7 +165,7 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
           <label>MT Club ID<input value={form.clubId} onChange={(event) => setForm({ ...form, clubId: event.target.value })} maxLength={64} /></label>
           <label>{t("role")}<select value={form.role} onChange={(event) => setForm({ ...form, role: parseRole(event.target.value) })}><option value="MEMBER">{t("member")}</option><option value="LEADER">{t("leader")}</option><option value="ADMIN">{t("admin")}</option></select></label>
           <label>{t("position") ?? "Position"}<select value={form.position} onChange={(event) => { const position = event.target.value as PositionLevel; setForm({ ...form, position, role: defaultRoleForPosition(position) }); }}><option value="HEAD">{getPositionLabel("HEAD", locale)}</option><option value="VICE">{getPositionLabel("VICE", locale)}</option><option value="LEADER">{getPositionLabel("LEADER", locale)}</option></select></label>
-          <label className="visibility-control"><input type="checkbox" checked={form.isMTC} onChange={(event) => setForm({ ...form, isMTC: event.target.checked })} />{t("isMtc") ?? "Part of MTC / Club heads"}</label>
+          <label className="visibility-control"><input type="checkbox" checked={form.isMTC} onChange={(event) => setForm({ ...form, isMTC: event.target.checked })} /><span>{t("isMtc") ?? "Part of MTC / Club heads"}</span></label>
           <label>{t("committee")}<CommitteeSelect
             committees={committees}
             includeMTC
@@ -180,14 +180,14 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
             disabled={form.role === "ADMIN" || (userRole === "LEADER" && userCommitteeId ? true : false)}
           /></label>
         </div>
-        <p className="empty-note">New accounts are created with the fixed initial password <strong>mtc123</strong> and must change it on first sign-in.</p>
+        <p className="empty-note compact-note">New accounts are created with the fixed initial password <strong>mtc123</strong> and must change it on first sign-in.</p>
         {message && <p className="form-message" role="status">{message}</p>}
-        <button className="button button-primary" type="submit" disabled={busy}>{busy ? t("creating") : t("create")}</button>
+        <div className="form-actions"><button className="button button-primary" type="submit" disabled={busy}>{busy ? t("creating") : t("create")}</button></div>
       </form>
 
-      <section className="team-edit-form">
+      <section className="team-edit-form compact-form">
         <h2>{t("accounts")}</h2>
-        <div className="user-admin-list">
+        <div className="user-admin-list compact-user-list">
           {users.map((user) => (
             <UserAdminRow
               key={user.id}
@@ -225,6 +225,7 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
 function UserAdminRow({ user, committees, onSave, onToggleActive, onReset, onRemove, userRole, userCommitteeId }: { user: AdminUserRow; committees: DbCommittee[]; onSave: (changes: Record<string, unknown>) => void; onToggleActive: () => void; onReset: () => void; onRemove: () => void; userRole?: Role; userCommitteeId?: string | null }) {
   const t = useTranslations("site.adminPages.users");
   const locale = useLocale() as "en" | "ar";
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone ?? "");
@@ -263,47 +264,72 @@ function UserAdminRow({ user, committees, onSave, onToggleActive, onReset, onRem
       isMTC: isMTC || selected?.key === "mtc",
       committeeId: nextCommitteeId,
     });
+    setEditing(false);
   }
 
+  const committeeLabel = user.isMTC ? "MTC" : (user.committee?.name ?? t("noCommittee"));
+  const roleLabel = user.role === "ADMIN" ? t("admin") : user.role === "LEADER" ? t("leader") : t("member");
+  const positionLabel = getPositionLabel((user.position ?? "LEADER") as PositionLevel, locale);
+
   return (
-    <article className="user-admin-row">
-      <div className="user-admin-identity"><strong>{user.name}</strong><span>{user.email}</span></div>
-      <div className="user-admin-status">
-        <span>{user.clubId ? `Club ID: ${user.clubId}` : "No Club ID"}</span>
-        <span>{user.academicNumber ? `Academic: ${user.academicNumber}` : "No Academic Number"}</span>
-        <span>{user.phone ? `Phone: ${user.phone}` : "No Phone"}</span>
-        <span>{user.isMTC ? "MTC" : (user.committee?.name ?? t("noCommittee"))}</span>
-        <span>{user.isActive ? t("active") : t("inactive")}{user.mustChangePassword ? t("passwordRequired") : ""}</span>
+    <article className={`user-admin-row compact-user-row${editing ? " is-editing" : ""}`}>
+      <div className="user-admin-summary">
+        <div className="user-admin-main">
+          <div className="user-admin-identity compact-identity">
+            <strong>{user.name}</strong>
+            <a href={`mailto:${user.email}`}>{user.email}</a>
+          </div>
+          <div className="user-admin-badges" aria-label="Member details">
+            <span className="compact-badge">{roleLabel}</span>
+            <span className="compact-badge">{positionLabel}</span>
+            <span className="compact-badge">{committeeLabel}</span>
+            <span className={`compact-badge ${user.isActive ? "is-good" : "is-muted"}`}>{user.isActive ? t("active") : t("inactive")}</span>
+            {user.mustChangePassword && <span className="compact-badge is-warn">{t("passwordRequired").trim() || "Password change required"}</span>}
+          </div>
+        </div>
+        <div className="user-admin-meta-grid">
+          <span><b>Club ID:</b> {user.clubId || "—"}</span>
+          <span><b>Academic:</b> {user.academicNumber || "—"}</span>
+          <span><b>Phone:</b> {user.phone || "—"}</span>
+        </div>
       </div>
-      <div className="admin-form-grid user-role-controls">
-        <label><span>{t("name")}</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
-        <label><span>{t("email")}</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-        <label><span>Phone</span><input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} /></label>
-        <label><span>Academic Number</span><input value={academicNumber} onChange={(e) => setAcademicNumber(e.target.value)} maxLength={64} /></label>
-        <label><span>MT Club ID</span><input value={clubId} onChange={(e) => setClubId(e.target.value)} maxLength={64} /></label>
-        <label><span>{t("role")}</span><select value={role} onChange={(event) => setRole(parseRole(event.target.value))}><option value="ADMIN">{t("admin")}</option><option value="LEADER">{t("leader")}</option><option value="MEMBER">{t("member")}</option></select></label>
-        <label><span>{t("position") ?? "Position"}</span><select value={position} onChange={(event) => setPosition(event.target.value as PositionLevel)}><option value="HEAD">{getPositionLabel("HEAD", locale)}</option><option value="VICE">{getPositionLabel("VICE", locale)}</option><option value="LEADER">{getPositionLabel("LEADER", locale)}</option></select></label>
-        <label className="visibility-control"><input type="checkbox" checked={isMTC} onChange={(e) => setIsMTC(e.target.checked)} /><span>{t("isMtc") ?? "MTC"}</span></label>
-        <label><span>{t("committee")}</span><CommitteeSelect
-          committees={committees}
-          includeMTC
-          value={committeeId}
-          onChange={(v) => {
-            const nextCommitteeId = Array.isArray(v) ? "" : (v ?? "");
-            const selected = committees.find((c) => c.id === nextCommitteeId);
-            if (selected?.key === "mtc") setIsMTC(true);
-            setCommitteeId(nextCommitteeId);
-          }}
-          mode="single"
-          disabled={role === "ADMIN" || (isLeader && userCommitteeId ? true : false)}
-        /></label>
-        <button type="button" className="button button-secondary" onClick={saveAll}>{t("saveRole")}</button>
-      </div>
-      <div className="user-admin-actions">
+      <div className="user-admin-actions compact-actions">
+        <button type="button" className="button button-secondary" onClick={() => setEditing((v) => !v)}>{editing ? "Close" : t("edit")}</button>
         <button type="button" className="button button-secondary" onClick={onToggleActive}>{user.isActive ? t("deactivate") : t("reactivate")}</button>
         <button type="button" className="button button-secondary" onClick={onReset}>{t("resetPassword")}</button>
         <button type="button" className="button button-secondary danger-button" onClick={onRemove}>{t("delete")}</button>
       </div>
+      {editing && (
+        <div className="user-admin-edit-panel">
+          <div className="admin-form-grid compact-form-grid user-edit-grid">
+            <label><span>{t("name")}</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
+            <label><span>{t("email")}</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label><span>Phone</span><input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={32} /></label>
+            <label><span>Academic Number</span><input value={academicNumber} onChange={(e) => setAcademicNumber(e.target.value)} maxLength={64} /></label>
+            <label><span>MT Club ID</span><input value={clubId} onChange={(e) => setClubId(e.target.value)} maxLength={64} /></label>
+            <label><span>{t("role")}</span><select value={role} onChange={(event) => setRole(parseRole(event.target.value))}><option value="ADMIN">{t("admin")}</option><option value="LEADER">{t("leader")}</option><option value="MEMBER">{t("member")}</option></select></label>
+            <label><span>{t("position") ?? "Position"}</span><select value={position} onChange={(event) => setPosition(event.target.value as PositionLevel)}><option value="HEAD">{getPositionLabel("HEAD", locale)}</option><option value="VICE">{getPositionLabel("VICE", locale)}</option><option value="LEADER">{getPositionLabel("LEADER", locale)}</option></select></label>
+            <label><span>{t("committee")}</span><CommitteeSelect
+              committees={committees}
+              includeMTC
+              value={committeeId}
+              onChange={(v) => {
+                const nextCommitteeId = Array.isArray(v) ? "" : (v ?? "");
+                const selected = committees.find((c) => c.id === nextCommitteeId);
+                if (selected?.key === "mtc") setIsMTC(true);
+                setCommitteeId(nextCommitteeId);
+              }}
+              mode="single"
+              disabled={role === "ADMIN" || (isLeader && userCommitteeId ? true : false)}
+            /></label>
+            <label className="visibility-control"><input type="checkbox" checked={isMTC} onChange={(e) => setIsMTC(e.target.checked)} /><span>{t("isMtc") ?? "MTC"}</span></label>
+          </div>
+          <div className="form-actions compact-actions">
+            <button type="button" className="button button-primary" onClick={saveAll}>{t("saveRole")}</button>
+            <button type="button" className="button button-secondary" onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
