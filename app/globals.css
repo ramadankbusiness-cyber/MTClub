@@ -878,3 +878,79 @@ h1, h2, h3, p { margin-top: 0; }
   .user-admin-meta-grid { gap: 4px 10px; }
   .dashboard-stat-grid, .report-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Attendance page + zone capture responsive layout */
+.attendance-create-form .admin-form-grid,
+.attendance-form-grid { align-items: start; }
+.attendance-create-form .admin-form-wide,
+.attendance-form-grid .admin-form-wide { grid-column: 1 / -1; }
+.attendance-submit { min-width: min(220px, 100%); }
+.attendance-form-grid input[type="datetime-local"],
+.attendance-form-grid input[type="number"],
+.attendance-form-grid input[type="text"],
+.attendance-form-grid select { width: 100%; min-width: 0; max-width: 100%; }
+
+.zone-capture { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
+.zone-capture h2 { margin: 0; font-family: var(--heading-font); font-size: 16px; }
+.zone-capture-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.zone-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.zone-capture-note { margin: 0; }
+.zone-map-wrap, .zone-map { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.zone-map-wrap { height: clamp(220px, 38vw, 360px); }
+.zone-map { height: clamp(220px, 38vw, 360px); }
+.zone-leaflet-map, .zone-map-wrap .leaflet-container, .zone-map .leaflet-container { width: 100% !important; height: 100% !important; min-height: 0; }
+.zone-meta { display: grid; gap: 4px; }
+.zone-capture-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; align-items: start; }
+.zone-capture-grid .admin-form-wide { grid-column: 1 / -1; }
+.zone-field-label { display: block; color: var(--ink); font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.radius-presets-wrap { display: grid; gap: 4px; }
+.radius-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.radius-pill { min-height: 32px; padding: 0 10px; font-size: 11px; }
+.radius-slider-label { display: grid; gap: 6px; color: var(--ink); font-size: 11px; font-weight: 600; }
+.radius-slider-label input[type="range"] { width: 100%; min-height: 24px; padding: 0; border: 0; background: transparent; }
+.zone-save-toggle { min-height: 38px; align-self: end; }
+
+.attendance-session-card { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.attendance-session-copy { min-width: 0; display: grid; gap: 4px; }
+.attendance-session-title { margin: 0; font-family: var(--heading-font); font-size: 17px; line-height: 1.2; overflow-wrap: anywhere; }
+.attendance-session-meta, .attendance-session-dates { margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.attendance-session-meta { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.attendance-session-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.attendance-session-actions { margin-top: 4px; }
+.attendance-session-actions > button { overflow-wrap: anywhere; }
+.attendance-session-tools { align-content: start; justify-items: end; gap: 8px; min-width: 0; }
+.attendance-session-tools .form-actions { justify-content: center; }
+.attendance-qr-panel { width: min(220px, 100%); }
+.attendance-qr-panel svg, .qr-placeholder { max-width: 100%; }
+.manual-attendance { width: 100%; display: grid; justify-items: end; }
+.manual-attendance > .button { width: 100%; }
+.manual-attendance form { width: min(340px, calc(100vw - 32px)); max-width: 100%; }
+.live-checkins-details { width: min(360px, calc(100vw - 32px)); max-width: 100%; }
+
+@media (max-width: 1024px) {
+  .attendance-session-card { grid-template-columns: 1fr; }
+  .attendance-session-tools { justify-items: stretch; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); width: 100%; }
+  .attendance-qr-panel { width: 100%; }
+  .manual-attendance { justify-items: stretch; }
+}
+@media (max-width: 768px) {
+  .zone-capture-grid { grid-template-columns: 1fr; }
+  .zone-capture-grid .admin-form-wide { grid-column: auto; }
+  .zone-capture-header { align-items: stretch; }
+  .zone-actions { width: 100%; }
+  .zone-actions .button { flex: 1 1 160px; }
+  .attendance-session-tools { grid-template-columns: 1fr; }
+}
+@media (max-width: 430px) {
+  .zone-map-wrap, .zone-map { height: 240px; }
+  .zone-capture { padding: 10px; }
+  .radius-presets { gap: 4px; }
+  .radius-pill { flex: 1 1 calc(33.333% - 4px); min-width: 64px; padding: 0 6px; }
+  .attendance-submit { width: 100%; }
+  .manual-attendance form, .live-checkins-details { inset-inline: 0; width: 100%; }
+}
+@media (max-width: 360px) {
+  .zone-map-wrap, .zone-map { height: 220px; }
+  .zone-actions .button { flex-basis: 100%; }
+  .attendance-qr-panel { padding: 8px; }
+}

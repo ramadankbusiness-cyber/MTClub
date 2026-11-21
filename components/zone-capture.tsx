@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Circle, CircleMarker, Popup, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, CircleMarker, Popup, useMap, useMapEvents } from "react-leaflet";
 import { useAppToast } from "@/components/app-toast-provider";
 import { useTranslations } from "next-intl";
 
@@ -36,6 +36,30 @@ function MapClickHandler({ onPick }: { onPick: (lat: number, lng: number) => voi
       onPick(event.latlng.lat, event.latlng.lng);
     },
   });
+  return null;
+}
+
+function MapResizeHandler() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    const invalidate = () => map.invalidateSize();
+    const raf = requestAnimationFrame(invalidate);
+    const timeout = window.setTimeout(invalidate, 200);
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => invalidate());
+      observer.observe(container);
+      if (container.parentElement) observer.observe(container.parentElement);
+    }
+    window.addEventListener("resize", invalidate);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
+      window.removeEventListener("resize", invalidate);
+      observer?.disconnect();
+    };
+  }, [map]);
   return null;
 }
 
@@ -131,33 +155,37 @@ export default function ZoneCapture({
   };
 
   const presets = [10, 50, 100, 200, 500];
+  const clampedRadius = Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS));
 
   return (
-    <section className="zone-capture" aria-label="Attendance zone">
-      <h2>{t("zoneSetup")}</h2>
-      <div className="zone-actions">
-        <button
-          type="button"
-          className="button button-primary"
-          disabled={locating}
-          onClick={retry}
-        >
-          {locating ? t("locating") : t("useMyLocation")}
-        </button>
-        {(manual || locateError) ? (
-          <button type="button" className="button button-secondary" onClick={() => setManual((v) => !v)}>
-            {t("adjustPin")}
+    <section className="zone-capture admin-form-wide" aria-label="Attendance zone">
+      <div className="zone-capture-header">
+        <h2>{t("zoneSetup")}</h2>
+        <div className="zone-actions">
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={locating}
+            onClick={retry}
+          >
+            {locating ? t("locating") : t("useMyLocation")}
           </button>
-        ) : null}
+          {(manual || locateError) ? (
+            <button type="button" className="button button-secondary" onClick={() => setManual((v) => !v)}>
+              {t("adjustPin")}
+            </button>
+          ) : null}
+        </div>
       </div>
       {locateError && (
         <p className="form-error" role="alert">{locateError}</p>
       )}
       {manual && (
-        <p className="empty-note">{t("clickMapToAdjust")}</p>
+        <p className="empty-note zone-capture-note">{t("clickMapToAdjust")}</p>
       )}
       <div className="zone-map-wrap">
-        <MapContainer center={point} zoom={16} scrollWheelZoom>
+        <MapContainer center={point} zoom={16} scrollWheelZoom className="zone-leaflet-map">
+          <MapResizeHandler />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -166,7 +194,7 @@ export default function ZoneCapture({
           <Marker position={point}>
             <Popup>{t("zoneCenter")}</Popup>
           </Marker>
-          <Circle center={point} radius={Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS))} pathOptions={{ color: "var(--a)", weight: 2, fillOpacity: 0.14 }} />
+          <Circle center={point} radius={clampedRadius} pathOptions={{ color: "var(--a)", weight: 2, fillOpacity: 0.14 }} />
           <CircleMarker center={point} radius={7} pathOptions={{ color: "#fff", weight: 2, fillColor: "#176f78", fillOpacity: 1 }} />
         </MapContainer>
       </div>
@@ -180,7 +208,7 @@ export default function ZoneCapture({
           <p className="warning-note">{t("poorAccuracyHint")}</p>
         )}
       </div>
-      <div className="admin-form-grid">
+      <div className="zone-capture-grid">
         <label>
           {t("zoneRadius")}
           <input
@@ -192,39 +220,40 @@ export default function ZoneCapture({
             required
           />
         </label>
-        <div className="radius-presets">
-          {presets.map((meters) => (
-            <button
-              key={meters}
-              type="button"
-              className={`button ${Number(radiusMeters) === meters ? "button-primary" : "button-secondary"} radius-pill`}
-              onClick={() => setRadiusMeters(meters)}
-            >
-              {meters} m
-            </button>
-          ))}
+        <div className="radius-presets-wrap">
+          <span className="zone-field-label">{t("zoneRadius")}</span>
+          <div className="radius-presets">
+            {presets.map((meters) => (
+              <button
+                key={meters}
+                type="button"
+                className={`button ${Number(radiusMeters) === meters ? "button-primary" : "button-secondary"} radius-pill`}
+                onClick={() => setRadiusMeters(meters)}
+              >
+                {meters} m
+              </button>
+            ))}
+          </div>
         </div>
-        <label className="radius-slider-label">
-          {t("zoneRadius")} ({Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS))} m)
+        <label className="radius-slider-label admin-form-wide">
+          {t("zoneRadius")} ({clampedRadius} m)
           <input
             type="range"
             min={MIN_RADIUS}
             max={MAX_RADIUS}
             step={10}
-            value={Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, Number(radiusMeters) || DEFAULT_RADIUS))}
+            value={clampedRadius}
             onChange={(event) => setRadiusMeters(Number(event.target.value))}
           />
         </label>
-        <p className="empty-note">{t("zoneRadiusHint")}</p>
-      </div>
-      <div className="admin-form-grid">
+        <p className="empty-note admin-form-wide zone-capture-note">{t("zoneRadiusHint")}</p>
         <label>
           {t("placeName")}
           <input value={placeName ?? ""} onChange={(event) => setPlaceName(event.target.value)} maxLength={100} />
         </label>
-        <label className="zone-save-toggle">
+        <label className="zone-save-toggle visibility-control">
           <input type="checkbox" checked={saveAsZone} onChange={(event) => setSaveAsZone(event.target.checked)} />
-          {t("saveAsZone")}
+          <span>{t("saveAsZone")}</span>
         </label>
         {saveAsZone && (
           <label>

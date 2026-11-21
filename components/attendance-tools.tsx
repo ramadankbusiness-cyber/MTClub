@@ -114,10 +114,10 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
 
   return (
     <div className="attendance-layout">
-      {isAdmin && <form className="team-edit-form" onSubmit={createSession}>
+      {isAdmin && <form className="team-edit-form attendance-create-form" onSubmit={createSession}>
         <h2>{t("create")}</h2>
-        <div className="admin-form-grid">
-          <label>{t("title")}<input value={title} onChange={(event) => setTitle(event.target.value)} minLength={2} maxLength={120} required /></label>
+        <div className="admin-form-grid attendance-form-grid">
+          <label className="admin-form-wide">{t("title")}<input value={title} onChange={(event) => setTitle(event.target.value)} minLength={2} maxLength={120} required /></label>
           <label>{t("committee")}<CommitteeSelect
             committees={committees}
             includeMTC={isAdmin}
@@ -128,25 +128,28 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
             allLabel={t("allCommittees")}
             disabled={userRole === "LEADER"}
           /></label>
+          <label>{t("qrMode")}<select value={qrMode} onChange={(event) => setQrMode(event.target.value === "STATIC" ? "STATIC" : "ROTATING")}><option value="ROTATING">{t("rotating")}</option><option value="STATIC">{t("static")}</option></select></label>
           <ZoneCapture value={zoneValue} onChange={(value) => setZoneValue(value)} />
-          <label>{t("placeName")}<input value={zoneValue.placeName ?? ""} onChange={(event) => setZoneValue({ ...zoneValue, placeName: event.target.value || null })} maxLength={100} /></label>
           <label>{t("starts")}<input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required /></label>
           <label>{t("ends")}<input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} required /></label>
           <label>{t("lateAfter")}<input type="number" min={0} max={240} value={lateAfterMinutes} onChange={(event) => setLateAfterMinutes(Number(event.target.value))} required /></label>
-          <label>{t("qrMode")}<select value={qrMode} onChange={(event) => setQrMode(event.target.value === "STATIC" ? "STATIC" : "ROTATING")}><option value="ROTATING">{t("rotating")}</option><option value="STATIC">{t("static")}</option></select></label>
         </div>
         {qrMode === "STATIC" && <p className="warning-note">{t("staticWarning")}</p>}
         {message && <p className="form-message" role="status">{message}</p>}
-        <button className="button button-primary" disabled={busy}>{busy ? t("creating") : t("createButton")}</button>
+        <div className="form-actions"><button className="button button-primary attendance-submit" disabled={busy}>{busy ? t("creating") : t("createButton")}</button></div>
       </form>}
       <section className="team-edit-form attendance-session-list">
         <h2>{isAdmin ? t("sessions") : t("committeeSessions")}</h2>
         {sessions.map((session) => <article className="attendance-session-card" key={session.id}>
           <div className="attendance-session-copy">
-            <p className="eyebrow">{session.committee ? getCommitteeLabel(session.committee.name, locale as "en" | "ar") : t("allCommittees")} · {session.zone?.name ?? t("noZone")}</p>
-            <h3>{session.title}</h3>
-            <p>{new Date(session.startsAt).toLocaleString(locale)} – {new Date(session.endsAt).toLocaleString(locale)}</p>
-            <span>{t("checkIns", { count: session.recordCount })} · {t("lateAfterShort", { minutes: session.lateAfterMinutes })}</span>
+            <p className="eyebrow attendance-session-meta">{session.committee ? getCommitteeLabel(session.committee.name, locale as "en" | "ar") : t("allCommittees")} · {session.zone?.name ?? session.placeName ?? t("noZone")}</p>
+            <h3 className="attendance-session-title">{session.title}</h3>
+            <p className="attendance-session-dates">{new Date(session.startsAt).toLocaleString(locale)} – {new Date(session.endsAt).toLocaleString(locale)}</p>
+            <div className="attendance-session-badges">
+              <span className="compact-badge">{t("checkIns", { count: session.recordCount })}</span>
+              <span className="compact-badge">{t("lateAfterShort", { minutes: session.lateAfterMinutes })}</span>
+              <span className="compact-badge">{session.qrMode === "STATIC" ? t("static") : t("rotating")}</span>
+            </div>
             <div className="attendance-session-actions"><LiveCheckIns sessionId={session.id} /><button type="button" onClick={() => window.location.assign("/api/admin/attendance/export")}>{t("exportCsv")}</button></div>
           </div>
           <div className="attendance-session-tools">
