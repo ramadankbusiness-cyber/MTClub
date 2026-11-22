@@ -106,7 +106,7 @@ export async function createImmediateNotification(input: {
   type: NotificationTypeValue;
   audience: "EVERYONE" | "COMMITTEE" | "USERS";
   committeeId: string | null;
-  createdById: string;
+  createdById?: string | null;
   userIds?: string[];
 }) {
   const now = new Date();
@@ -153,6 +153,7 @@ export async function dispatchOperationalReminders(now = new Date()) {
     const events = await prisma.event.findMany({
       where: {
         published: true,
+        archivedAt: null,
         startsAt: { gt: new Date(threshold - 2 * 60_000), lte: new Date(threshold) },
       },
       select: { id: true, title: true, titleAr: true, startsAt: true, committeeId: true, createdById: true },
@@ -198,7 +199,11 @@ export async function dispatchOperationalReminders(now = new Date()) {
   }
 
   const sessions = await prisma.attendanceSession.findMany({
-    where: { startsAt: { gt: new Date(now.getTime() - 2 * 60_000), lte: now }, endsAt: { gt: now } },
+    where: {
+      startsAt: { gt: new Date(now.getTime() - 2 * 60_000), lte: now },
+      endsAt: { gt: now },
+      OR: [{ eventId: null }, { event: { archivedAt: null } }],
+    },
     select: { id: true, title: true, committeeId: true, createdById: true },
   });
   for (const session of sessions) {

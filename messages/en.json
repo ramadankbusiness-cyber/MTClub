@@ -26,7 +26,10 @@
       "audit": "Audit log",
       "login": "Log in",
       "logout": "Log out",
-      "homeLabel": "MT Club home"
+      "homeLabel": "MT Club home",
+      "pointsManagement": "Points management",
+      "leaderboard": "Leaderboard",
+      "memberAnalytics": "Member analytics"
     },
     "home": {
       "badge": "Applications open for the new season",
@@ -559,7 +562,21 @@
         "empty": "No events have been added yet.",
         "saveError": "Could not save this event. Please try again.",
         "delete": "Delete",
-        "editButton": "Edit"
+        "editButton": "Edit",
+        "archive": "Archive",
+        "restore": "Restore",
+        "archived": "Archived",
+        "archivedEvents": "Archived events",
+        "showArchived": "Show archived",
+        "hideArchived": "Hide archived",
+        "archiveConfirm": "Archive \"{title}\"? It will be hidden from active lists, but attendance history will be preserved.",
+        "archiveError": "Could not archive the event.",
+        "restoreError": "Could not restore the event.",
+        "permanentDelete": "Delete permanently",
+        "permanentDeleteConfirm": "Permanently delete \"{title}\"? This will permanently remove the event, its attendance sessions, and attendance records/check-ins for those sessions. This action cannot be undone.",
+        "permanentDeleteError": "Could not permanently delete the event.",
+        "archivedEmpty": "No archived events.",
+        "attendancePoints": "Attendance points"
       }
     },
     "footer": "© 2026 MT Club. All rights reserved.",

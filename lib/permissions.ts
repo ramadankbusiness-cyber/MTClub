@@ -11,6 +11,7 @@ export const permissions = {
     "attendance.sessions.create", "attendance.sessions.manage", "attendance.qr.generate",
     "attendance.read.all", "attendance.export", "attendance.manualMark",
     "excuses.read.all", "excuses.review",
+    "points.view", "points.manage",
     "notifications.read", "notifications.send", "notifications.send.anyAudience", "notifications.manage",
     "audit.read", "permissions.read",
     "profile.read.own", "profile.update.own", "attendance.read.own", "attendance.scan.own",

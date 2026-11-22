@@ -38,7 +38,12 @@ export default async function AttendancePage({ params }: Props) {
     );
   }
   const sessions = await prisma.attendanceSession.findMany({
-    where: user.role === "ADMIN" ? {} : { OR: [{ committeeId: null }, { committeeId: user.committeeId }] },
+    where: {
+      AND: [
+        user.role === "ADMIN" ? {} : { OR: [{ committeeId: null }, { committeeId: user.committeeId }] },
+        { OR: [{ eventId: null }, { event: { archivedAt: null } }] },
+      ],
+    },
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },

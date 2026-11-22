@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth-guards";
 import { excuseReviewSchema } from "@/lib/schemas";
 import { createImmediateNotification } from "@/lib/notification-delivery";
 import { writeAuditLog } from "@/lib/audit";
+import { syncAttendancePoints, sendPointNotifications } from "@/lib/points";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -30,8 +31,9 @@ async function PATCHInternal(request: Request, context: RouteContext) {
       data: { status: parsed.data.status, reviewNote: parsed.data.reviewNote ?? null, reviewerId: access.user.id, reviewedAt: new Date() },
       include: { user: { select: { id: true, name: true } }, session: { select: { id: true, title: true } } },
     });
+    let pointNotifications: Awaited<ReturnType<typeof syncAttendancePoints>> = [];
     if (parsed.data.status === "APPROVED") {
-      await transaction.attendanceRecord.upsert({
+      const record = await transaction.attendanceRecord.upsert({
         where: { userId_sessionId: { userId: excuse.user.id, sessionId: excuse.session.id } },
         create: {
           userId: excuse.user.id, sessionId: excuse.session.id, status: "EXCUSED",
@@ -42,21 +44,29 @@ async function PATCHInternal(request: Request, context: RouteContext) {
           markedById: access.user.id, checkedInAt: null, distanceMeters: null, accuracyMeters: null,
         },
       });
+      pointNotifications = await syncAttendancePoints(transaction, {
+        attendanceRecordId: record.id,
+        userId: excuse.user.id,
+        sessionId: excuse.session.id,
+        newStatus: "EXCUSED",
+        actorId: access.user.id,
+      });
     }
-    return excuse;
+    return { excuse, pointNotifications };
   });
   await writeAuditLog({ actorId: access.user.id, action: `excuse.${parsed.data.status.toLowerCase()}`, targetType: "Excuse", targetId: id });
   await createImmediateNotification({
     title: `Excuse request ${parsed.data.status.toLowerCase()}`,
-    message: `Your request for ${updated.session.title} was ${parsed.data.status.toLowerCase()}.${parsed.data.reviewNote ? ` ${parsed.data.reviewNote}` : ""}`,
+    message: `Your request for ${updated.excuse.session.title} was ${parsed.data.status.toLowerCase()}.${parsed.data.reviewNote ? ` ${parsed.data.reviewNote}` : ""}`,
     link: "/attendance",
     type: "EXCUSE_DECISION",
     audience: "USERS",
     committeeId: null,
     createdById: access.user.id,
-    userIds: [updated.user.id],
+    userIds: [updated.excuse.user.id],
   });
-  return NextResponse.json({ excuse: updated });
+  await sendPointNotifications(updated.pointNotifications);
+  return NextResponse.json({ excuse: updated.excuse });
 }
 
 export const PATCH = withApiErrorHandling(PATCHInternal, "/api/excuses/[id]");

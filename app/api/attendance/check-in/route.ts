@@ -7,6 +7,7 @@ import { checkInSchema } from "@/lib/schemas";
 import { hashIdentifier, requestIp } from "@/lib/security";
 import { haversineMeters, isInsideZone, isLate } from "@/lib/attendance";
 import { verifyQrToken } from "@/lib/qr-token";
+import { syncAttendancePoints, sendPointNotifications } from "@/lib/points";
 
 const recentTimestampWindowMs = 2 * 60 * 1000;
 const suspiciousAccuracyMeters = 75;
@@ -24,7 +25,7 @@ async function POSTInternal(request: Request) {
   const token = verifyQrToken(input.token, now.getTime());
   const sessionId = token?.sessionId;
   const session = sessionId
-    ? await prisma.attendanceSession.findUnique({ where: { id: sessionId }, include: { zone: true, event: { select: { id: true, isOpen: true, qrAttendanceOpen: true } } } })
+    ? await prisma.attendanceSession.findUnique({ where: { id: sessionId }, include: { zone: true, event: { select: { id: true, isOpen: true, qrAttendanceOpen: true, archivedAt: true } } } })
     : null;
   const ipHash = hashIdentifier(requestIp(request));
   const deviceHash = hashIdentifier(input.deviceId);
@@ -57,6 +58,7 @@ async function POSTInternal(request: Request) {
     (session.qrMode === "STATIC") !== token.static
   ) return reject("This attendance QR code is invalid or has expired.");
   if (session.event) {
+    if (session.event.archivedAt) return reject("This event has been archived.", 403);
     if (!session.event.isOpen) return reject("This event is closed for attendance.", 403);
     if (!session.event.qrAttendanceOpen) return reject("QR attendance scanning is currently closed for this event.", 403);
   }
@@ -97,8 +99,74 @@ async function POSTInternal(request: Request) {
   const status = isLate(now, session.startsAt, session.lateAfterMinutes)
     ? AttendanceStatus.LATE
     : AttendanceStatus.PRESENT;
+
+  class CheckinRejectedError extends Error {
+    statusCode: number;
+    reason: string;
+    distance?: number;
+    constructor(reason: string, statusCode = 400, distance?: number) {
+      super(reason);
+      this.reason = reason;
+      this.statusCode = statusCode;
+      this.distance = distance;
+    }
+  }
+
   try {
     const record = await prisma.$transaction(async (transaction) => {
+      const expectedEventId = session.event?.id ?? session.eventId ?? null;
+
+      // Lock Event first, then Session, to keep lock order consistent with archive (Event -> Sessions).
+      let lockedEvent: { id: string; archivedAt: Date | null; isOpen: boolean; qrAttendanceOpen: boolean } | null = null;
+      if (expectedEventId) {
+        const lockedEventRows = await transaction.$queryRaw<Array<{
+          id: string;
+          archivedAt: Date | null;
+          isOpen: boolean;
+          qrAttendanceOpen: boolean;
+        }>>`
+          SELECT id, "archivedAt", "isOpen", "qrAttendanceOpen"
+          FROM "Event"
+          WHERE id = ${expectedEventId}
+          FOR UPDATE
+        `;
+        lockedEvent = lockedEventRows[0] ?? null;
+        if (!lockedEvent) throw new CheckinRejectedError("This event is closed for attendance.", 403);
+      }
+
+      const lockedSessionRows = await transaction.$queryRaw<Array<{
+        id: string;
+        eventId: string | null;
+        qrEnabled: boolean;
+        startsAt: Date;
+        endsAt: Date;
+        committeeId: string | null;
+      }>>`
+        SELECT id, "eventId", "qrEnabled", "startsAt", "endsAt", "committeeId"
+        FROM "AttendanceSession"
+        WHERE id = ${session.id}
+        FOR UPDATE
+      `;
+      const lockedSession = lockedSessionRows[0];
+      if (!lockedSession) throw new CheckinRejectedError("This attendance session is not open.", 400);
+
+      // Validate session-event relationship hasn't changed unexpectedly.
+      if ((lockedSession.eventId ?? null) !== (expectedEventId ?? null)) {
+        throw new CheckinRejectedError("This attendance session is no longer valid. Please scan again.", 409);
+      }
+
+      if (lockedEvent) {
+        if (lockedEvent.archivedAt) throw new CheckinRejectedError("This event has been archived.", 403);
+        if (!lockedEvent.isOpen) throw new CheckinRejectedError("This event is closed for attendance.", 403);
+        if (!lockedEvent.qrAttendanceOpen) throw new CheckinRejectedError("QR attendance scanning is currently closed for this event.", 403);
+      }
+
+      if (lockedSession.qrEnabled === false) throw new CheckinRejectedError("QR attendance scanning is currently closed for this session.", 403);
+      if (lockedSession.startsAt > now || lockedSession.endsAt <= now) throw new CheckinRejectedError("This attendance session is not open.", 400);
+      if (lockedSession.committeeId && user.committeeId !== lockedSession.committeeId) {
+        throw new CheckinRejectedError("You are not eligible to check in to this session.", 403);
+      }
+
       const attendance = await transaction.attendanceRecord.create({
         data: {
           userId: user.id,
@@ -120,10 +188,21 @@ async function POSTInternal(request: Request) {
           ipHash,
         },
       });
-      return attendance;
+      const pointNotifications = await syncAttendancePoints(transaction, {
+        attendanceRecordId: attendance.id,
+        userId: user.id,
+        sessionId: session.id,
+        newStatus: status,
+        actorId: user.id,
+      });
+      return { attendance, pointNotifications };
     });
-    return NextResponse.json({ record });
+    await sendPointNotifications(record.pointNotifications);
+    return NextResponse.json({ record: record.attendance });
   } catch (error) {
+    if (error instanceof CheckinRejectedError) {
+      return reject(error.reason, error.statusCode, error.distance ?? distanceMeters);
+    }
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
       return reject("You have already checked in to this session.", 409, distanceMeters);
     }

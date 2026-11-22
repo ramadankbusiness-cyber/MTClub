@@ -62,7 +62,14 @@ export function buildEventSessionWindows(event: Pick<EventLike, "startsAt" | "en
   return days;
 }
 
-export async function syncEventAttendanceSessions(event: EventLike) {
+export async function syncEventAttendanceSessions(event: EventLike & { archivedAt?: Date | null }) {
+  if (event.archivedAt) {
+    return prisma.attendanceSession.findMany({
+      where: { eventId: event.id },
+      include: { committee: { select: { id: true, name: true } }, zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } }, event: { select: { id: true, isOpen: true, qrAttendanceOpen: true, archivedAt: true } }, _count: { select: { records: true } } },
+      orderBy: { startsAt: "asc" },
+    });
+  }
   const windows = buildEventSessionWindows(event);
   const existing = await prisma.attendanceSession.findMany({
     where: { eventId: event.id },

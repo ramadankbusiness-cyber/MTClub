@@ -25,6 +25,7 @@ export default async function DashboardPage({ params }: Props) {
   const upcomingEvents = await prisma.event.findMany({
     where: {
       published: true,
+      archivedAt: null,
       startsAt: { gte: now },
       ...(user.role === "ADMIN" ? {} : { OR: [{ committeeId: null }, { committeeId: user.committeeId }] }),
     },

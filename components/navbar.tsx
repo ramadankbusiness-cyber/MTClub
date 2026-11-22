@@ -62,6 +62,9 @@ export function Navbar() {
                   <Link href="/dashboard" onClick={() => setAccountMenuOpen(false)}>{text.nav.dashboard}</Link>
                   <Link href="/attendance" onClick={() => setAccountMenuOpen(false)}>{text.nav.attendance}</Link>
                   {(session.user.role === "ADMIN" || session.user.role === "LEADER") && <Link href="/admin/reports" onClick={() => setAccountMenuOpen(false)}>{text.nav.attendanceReports}</Link>}
+                  {session.user.role === "ADMIN" && <Link href="/admin/points" onClick={() => setAccountMenuOpen(false)}>{text.nav.pointsManagement}</Link>}
+                  {session.user.role === "ADMIN" && <Link href="/admin/analytics" onClick={() => setAccountMenuOpen(false)}>{text.nav.memberAnalytics}</Link>}
+                  <Link href="/leaderboard" onClick={() => setAccountMenuOpen(false)}>{text.nav.leaderboard}</Link>
                   <Link href="/excuses" onClick={() => setAccountMenuOpen(false)}>{text.nav.excuses}</Link>
                   <Link href="/profile" onClick={() => setAccountMenuOpen(false)}>{text.nav.profile}</Link>
                   <Link href="/notifications" onClick={() => setAccountMenuOpen(false)}>{text.nav.notifications}</Link>

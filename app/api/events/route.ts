@@ -14,7 +14,7 @@ const eventInclude = {
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
-      event: { select: { id: true, isOpen: true, qrAttendanceOpen: true } },
+      event: { select: { id: true, isOpen: true, qrAttendanceOpen: true, archivedAt: true } },
       _count: { select: { records: true } },
     },
     orderBy: { startsAt: "asc" as const },
@@ -27,15 +27,19 @@ async function GETInternal(request: Request) {
   if (manage) {
     const access = await requirePermission("events.create");
     if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+    const archived = new URL(request.url).searchParams.get("archived") === "true";
     const events = await prisma.event.findMany({
-      where: access.user.role === "ADMIN" ? {} : { committeeId: access.user.committeeId },
+      where: {
+        ...(access.user.role === "ADMIN" ? {} : { committeeId: access.user.committeeId }),
+        archivedAt: archived ? { not: null } : null,
+      },
       include: eventInclude,
       orderBy: { startsAt: "desc" },
     });
     return NextResponse.json({ events });
   }
   const events = await prisma.event.findMany({
-    where: { published: true },
+    where: { published: true, archivedAt: null },
     orderBy: { startsAt: "asc" },
     take: 100,
     include: { committee: { select: { id: true, name: true } } },

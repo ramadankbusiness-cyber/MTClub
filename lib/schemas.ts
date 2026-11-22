@@ -150,6 +150,7 @@ export const eventSchema = z.object({
   published: z.boolean().default(true),
   isOpen: z.boolean().default(true),
   qrAttendanceOpen: z.boolean().default(false),
+  attendancePoints: z.coerce.number().int().min(0).max(100000).default(0),
   ...zoneCaptureSchema.shape,
 }).refine((value) => !value.endsAt || value.endsAt > value.startsAt, {
   message: "End time must be after the event start",
@@ -189,7 +190,7 @@ export const notificationSchema = z.object({
   message: z.string().trim().min(2).max(3000),
   messageAr: z.string().trim().max(3000).optional().nullable(),
   link: z.string().startsWith("/").max(500).refine((value) => !value.startsWith("//") && !value.includes("\\"), "Use a same-site link").optional().nullable(),
-  type: z.enum(["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION"]).default("ANNOUNCEMENT"),
+  type: z.enum(["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION", "POINTS_ADDED", "POINTS_DEDUCTED"]).default("ANNOUNCEMENT"),
   audience: z.enum(["EVERYONE", "ROLE", "COMMITTEE", "USERS", "MTC", "POSITION"]),
   audienceRole: z.enum(["ADMIN", "LEADER", "MEMBER"]).optional(),
   audiencePosition: positionSchema.optional(),

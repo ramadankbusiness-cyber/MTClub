@@ -31,5 +31,7 @@ export const NotificationType = {
   PASSWORD_CHANGED: "PASSWORD_CHANGED",
   ROLE_CHANGED: "ROLE_CHANGED",
   EXCUSE_DECISION: "EXCUSE_DECISION",
+  POINTS_ADDED: "POINTS_ADDED",
+  POINTS_DEDUCTED: "POINTS_DEDUCTED",
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];

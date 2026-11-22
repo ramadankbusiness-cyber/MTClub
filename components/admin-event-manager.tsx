@@ -17,7 +17,7 @@ type ManagedAttendanceSession = {
   qrMode: "ROTATING" | "STATIC";
   qrEnabled?: boolean;
   recordCount?: number;
-  event?: { id: string; isOpen: boolean; qrAttendanceOpen: boolean } | null;
+  event?: { id: string; isOpen: boolean; qrAttendanceOpen: boolean; archivedAt?: string | null } | null;
 };
 export type ManagedEvent = {
   id: string;
@@ -33,6 +33,8 @@ export type ManagedEvent = {
   published: boolean;
   isOpen?: boolean;
   qrAttendanceOpen?: boolean;
+  archivedAt?: string | null;
+  attendancePoints?: number;
   centerLat: number;
   centerLng: number;
   radiusMeters: number;
@@ -53,6 +55,7 @@ const emptyForm = {
   published: true,
   isOpen: true,
   qrAttendanceOpen: false,
+  attendancePoints: 0,
   centerLat: 30.0444,
   centerLng: 31.2357,
   radiusMeters: 100,
@@ -61,27 +64,32 @@ const emptyForm = {
 };
 const localInput = (date: string | Date | null) => date ? new Date(date).toISOString().slice(0, 16) : "";
 
-export function AdminEventManager({ initialEvents, committees, isAdmin, userRole, userCommitteeId }: { initialEvents: ManagedEvent[]; committees: DbCommittee[]; isAdmin: boolean; userRole?: "ADMIN" | "LEADER" | "MEMBER"; userCommitteeId?: string | null }) {
+export function AdminEventManager({ initialEvents, initialArchivedEvents = [], committees, isAdmin, userRole, userCommitteeId }: { initialEvents: ManagedEvent[]; initialArchivedEvents?: ManagedEvent[]; committees: DbCommittee[]; isAdmin: boolean; userRole?: "ADMIN" | "LEADER" | "MEMBER"; userCommitteeId?: string | null }) {
   const showToast = useAppToast();
   const t = useTranslations("site.pages.eventManager");
   const locale = useLocale();
   const [events, setEvents] = useState(initialEvents);
+  const [archivedEvents, setArchivedEvents] = useState(initialArchivedEvents);
+  const [showArchived, setShowArchived] = useState(false);
   const [form, setForm] = useState(() => ({
     ...emptyForm,
     ...(userRole === "LEADER" && userCommitteeId ? { committeeId: userCommitteeId } : {}),
   }));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState<string>("");
   const [message, setMessage] = useState("");
   const [formLanguage, setFormLanguage] = useState<"en" | "ar">("en");
   const [zoneValue, setZoneValue] = useState<ZoneCaptureValue>({ latitude: 30.0444, longitude: 31.2357, radiusMeters: 100, accuracy: null, placeName: null, saveAsZone: false, zoneName: null, zoneId: null });
 
   function editEvent(event: ManagedEvent) {
+    if (event.archivedAt) return;
     setEditingId(event.id);
     setForm({
       title: event.title, titleAr: event.titleAr ?? "", description: event.description, descriptionAr: event.descriptionAr ?? "", startsAt: localInput(event.startsAt),
       endsAt: localInput(event.endsAt), location: event.location ?? "", committeeId: event.committeeId ?? "", published: event.published,
       isOpen: event.isOpen ?? true, qrAttendanceOpen: event.qrAttendanceOpen ?? false,
+      attendancePoints: event.attendancePoints ?? 0,
       centerLat: event.centerLat ?? 30.0444, centerLng: event.centerLng ?? 31.2357, radiusMeters: event.radiusMeters ?? 100, locationAccuracy: event.locationAccuracy ?? null, placeName: event.placeName ?? null,
     });
     setZoneValue({ latitude: event.centerLat ?? 30.0444, longitude: event.centerLng ?? 31.2357, radiusMeters: event.radiusMeters ?? 100, accuracy: event.locationAccuracy ?? null, placeName: event.placeName ?? null, saveAsZone: false, zoneName: null, zoneId: null });
@@ -95,7 +103,7 @@ export function AdminEventManager({ initialEvents, committees, isAdmin, userRole
       const isOpen = !!form.isOpen;
       const qrAttendanceOpen = isOpen && !!form.qrAttendanceOpen;
       const payload = {
-        ...form, isOpen, qrAttendanceOpen, startsAt: new Date(form.startsAt).toISOString(),
+        ...form, isOpen, qrAttendanceOpen, attendancePoints: Math.max(0, Math.trunc(Number(form.attendancePoints) || 0)), startsAt: new Date(form.startsAt).toISOString(),
         endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
         location: form.location || null, committeeId: userRole === "LEADER" ? userCommitteeId : isAdmin ? form.committeeId || null : null,
         centerLat: zoneValue.latitude, centerLng: zoneValue.longitude, radiusMeters: zoneValue.radiusMeters,
@@ -115,8 +123,8 @@ export function AdminEventManager({ initialEvents, committees, isAdmin, userRole
       setEditingId(null);
       setFormLanguage("en");
       setZoneValue({ latitude: 30.0444, longitude: 31.2357, radiusMeters: 100, accuracy: null, placeName: null, saveAsZone: false, zoneName: null, zoneId: null });
-    } catch {
-      const errorMessage = t("saveError");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t("saveError");
       setMessage(errorMessage);
       showToast(errorMessage);
     } finally {
@@ -124,12 +132,53 @@ export function AdminEventManager({ initialEvents, committees, isAdmin, userRole
     }
   }
 
-  async function remove(event: ManagedEvent) {
-    if (!window.confirm(t("deleteConfirm", { title: event.title }))) return;
-    const response = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
-    const result = await response.json();
-    if (!response.ok) setMessage(result.error ?? t("deleteError"));
-    else setEvents((current) => current.filter((entry) => entry.id !== event.id));
+  async function archiveEvent(event: ManagedEvent) {
+    if (!window.confirm(t("archiveConfirm", { title: event.title }))) return;
+    setBusyAction(`archive:${event.id}`);
+    try {
+      const response = await fetch(`/api/events/${event.id}/archive`, { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? t("archiveError"));
+      setEvents((current) => current.filter((entry) => entry.id !== event.id));
+      setArchivedEvents((current) => [result.event, ...current.filter((entry) => entry.id !== event.id)]);
+      if (editingId === event.id) setEditingId(null);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t("archiveError"));
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function restoreEvent(event: ManagedEvent) {
+    setBusyAction(`restore:${event.id}`);
+    try {
+      const response = await fetch(`/api/events/${event.id}/restore`, { method: "POST" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? t("restoreError"));
+      setArchivedEvents((current) => current.filter((entry) => entry.id !== event.id));
+      setEvents((current) => [...current.filter((entry) => entry.id !== event.id), result.event].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()));
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t("restoreError"));
+    } finally {
+      setBusyAction("");
+    }
+  }
+
+  async function permanentlyDeleteEvent(event: ManagedEvent) {
+    if (!window.confirm(t("permanentDeleteConfirm", { title: event.title }))) return;
+    setBusyAction(`delete:${event.id}`);
+    try {
+      const response = await fetch(`/api/events/${event.id}?mode=permanent`, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? t("permanentDeleteError"));
+      setEvents((current) => current.filter((entry) => entry.id !== event.id));
+      setArchivedEvents((current) => current.filter((entry) => entry.id !== event.id));
+      if (editingId === event.id) setEditingId(null);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : t("permanentDeleteError"));
+    } finally {
+      setBusyAction("");
+    }
   }
 
   return (
@@ -147,6 +196,7 @@ export function AdminEventManager({ initialEvents, committees, isAdmin, userRole
           <label>{t("starts")}<input type="datetime-local" value={form.startsAt} onChange={(event) => setForm({ ...form, startsAt: event.target.value })} required /></label>
           <label>{t("ends")}<input type="datetime-local" value={form.endsAt} onChange={(event) => setForm({ ...form, endsAt: event.target.value })} /></label>
           <label>{t("location")}<input value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} maxLength={250} /></label>
+          <label>{t("attendancePoints")}<input type="number" min={0} max={100000} step={1} value={form.attendancePoints} onChange={(event) => setForm({ ...form, attendancePoints: Math.max(0, Math.trunc(Number(event.target.value) || 0)) })} /></label>
           <ZoneCapture value={zoneValue} onChange={(value) => { setZoneValue(value); setForm((current) => ({ ...current, placeName: value.placeName ?? current.placeName ?? null })); }} />
           <label>{t("committee")}<CommitteeSelect
             committees={committees}
@@ -172,19 +222,44 @@ export function AdminEventManager({ initialEvents, committees, isAdmin, userRole
             <strong>{locale === "ar" ? item.titleAr || item.title : item.title}</strong>
             <span>{new Date(item.startsAt).toLocaleString(locale)} · {item.location || t("noLocation")}</span>
             <span>{(item.isOpen ?? true) ? (t("eventOpen") ?? "Event open") : (t("eventClosed") ?? "Event closed")} · {(item.qrAttendanceOpen ?? false) ? (t("qrAttendanceOpen") ?? "QR attendance open") : (t("qrAttendanceClosed") ?? "QR attendance closed")}</span>
+            <span>{t("attendancePoints")}: {item.attendancePoints ?? 0}</span>
           </div>
           <div className="user-admin-status"><span>{item.committee ? getCommitteeLabel(item.committee.name, locale as "en" | "ar") : t("allMembers")}</span><span>{item.published ? t("published") : t("draft")}</span></div>
-          <div className="user-admin-actions"><button className="button button-secondary" type="button" onClick={() => editEvent(item)}>{t("editButton")}</button>{isAdmin && <button className="button button-secondary danger-button" type="button" onClick={() => void remove(item)}>{t("delete")}</button>}</div>
+          <div className="user-admin-actions">
+            <button className="button button-secondary" type="button" onClick={() => editEvent(item)} disabled={!!busyAction}>{t("editButton")}</button>
+            {isAdmin && <button className="button button-secondary" type="button" onClick={() => void archiveEvent(item)} disabled={!!busyAction}>{busyAction === `archive:${item.id}` ? "..." : t("archive")}</button>}
+            {isAdmin && <button className="button button-secondary danger-button" type="button" onClick={() => void permanentlyDeleteEvent(item)} disabled={!!busyAction}>{t("permanentDelete")}</button>}
+          </div>
           {editingId === item.id && <EventAttendancePanel event={item} onUpdated={(updated) => setEvents((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} />}
         </article>)}
           {!events.length && <p className="empty-note">{t("empty")}</p>}
         </div>
       </section>
+      {isAdmin && (
+        <section className="team-edit-form">
+          <div className="admin-section-heading"><h2>{t("archivedEvents")}</h2><button type="button" className="button button-secondary" onClick={() => setShowArchived((v) => !v)}>{showArchived ? t("hideArchived") : t("showArchived")}</button></div>
+          {showArchived && <div className="user-admin-list">{archivedEvents.map((item) => <article className="user-admin-row" key={item.id}>
+            <div className="user-admin-identity">
+              <strong>{locale === "ar" ? item.titleAr || item.title : item.title}</strong>
+              <span>{new Date(item.startsAt).toLocaleString(locale)} · {item.location || t("noLocation")}</span>
+              <span>{t("archived")}{item.archivedAt ? ` · ${new Date(item.archivedAt).toLocaleString(locale)}` : ""}</span>
+            </div>
+            <div className="user-admin-status"><span>{item.committee ? getCommitteeLabel(item.committee.name, locale as "en" | "ar") : t("allMembers")}</span><span>{item.published ? t("published") : t("draft")}</span></div>
+            <div className="user-admin-actions">
+              <button className="button button-secondary" type="button" onClick={() => void restoreEvent(item)} disabled={!!busyAction}>{busyAction === `restore:${item.id}` ? "..." : t("restore")}</button>
+              <button className="button button-secondary danger-button" type="button" onClick={() => void permanentlyDeleteEvent(item)} disabled={!!busyAction}>{t("permanentDelete")}</button>
+            </div>
+            <EventAttendancePanel event={item} onUpdated={(updated) => setArchivedEvents((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} readOnly />
+          </article>)}
+            {!archivedEvents.length && <p className="empty-note">{t("archivedEmpty")}</p>}
+          </div>}
+        </section>
+      )}
     </div>
   );
 }
 
-function EventAttendancePanel({ event, onUpdated }: { event: ManagedEvent; onUpdated: (event: ManagedEvent) => void }) {
+function EventAttendancePanel({ event, onUpdated, readOnly = false }: { event: ManagedEvent; onUpdated: (event: ManagedEvent) => void; readOnly?: boolean }) {
   const t = useTranslations("site.attendance");
   const locale = useLocale();
   const showToast = useAppToast();
@@ -256,12 +331,17 @@ function EventAttendancePanel({ event, onUpdated }: { event: ManagedEvent; onUpd
 
   return (
     <div className="team-edit-form" style={{ marginTop: "1rem" }}>
-      <h3>Attendance & QR</h3>
-      <div className="admin-form-grid">
-        <label className="visibility-control"><input type="checkbox" checked={controls.isOpen} disabled={busyAction === "controls"} onChange={(e) => { const next = { isOpen: e.target.checked, qrAttendanceOpen: e.target.checked ? controls.qrAttendanceOpen : false }; setControls(next); void saveControls(next); }} />Event open</label>
-        <label className="visibility-control"><input type="checkbox" checked={controls.qrAttendanceOpen} disabled={!controls.isOpen || busyAction === "controls"} onChange={(e) => { const next = { isOpen: controls.isOpen, qrAttendanceOpen: e.target.checked }; setControls(next); void saveControls(next); }} />QR attendance open</label>
-      </div>
-      <p className="empty-note">Independent controls: closing the event closes QR scanning; closing QR scanning immediately prevents new submissions.</p>
+      <h3>Attendance &amp; QR</h3>
+      {!readOnly && (
+        <>
+          <div className="admin-form-grid">
+            <label className="visibility-control"><input type="checkbox" checked={controls.isOpen} disabled={busyAction === "controls"} onChange={(e) => { const next = { isOpen: e.target.checked, qrAttendanceOpen: e.target.checked ? controls.qrAttendanceOpen : false }; setControls(next); void saveControls(next); }} />Event open</label>
+            <label className="visibility-control"><input type="checkbox" checked={controls.qrAttendanceOpen} disabled={!controls.isOpen || busyAction === "controls"} onChange={(e) => { const next = { isOpen: controls.isOpen, qrAttendanceOpen: e.target.checked }; setControls(next); void saveControls(next); }} />QR attendance open</label>
+          </div>
+          <p className="empty-note">Independent controls: closing the event closes QR scanning; closing QR scanning immediately prevents new submissions.</p>
+        </>
+      )}
+      {readOnly && <p className="empty-note">Archived event: attendance history is preserved, but QR/check-in actions are disabled.</p>}
       {sessions.length ? sessions.map((session) => {
         const state = qrState[session.id];
         return (
@@ -270,16 +350,18 @@ function EventAttendancePanel({ event, onUpdated }: { event: ManagedEvent; onUpd
               <p className="eyebrow">{session.qrMode} · {(session.recordCount ?? 0)} check-ins</p>
               <h4>{session.title}</h4>
               <p>{new Date(session.startsAt).toLocaleString(locale)} – {new Date(session.endsAt).toLocaleString(locale)}</p>
-              <div className="form-actions">
-                <button type="button" className="button button-secondary" disabled={!!busyAction} onClick={() => void qrAction(session.id, "issue")}>{busyAction === `issue:${session.id}` ? "Working…" : "Generate / Show QR"}</button>
-                <button type="button" className="button button-secondary" disabled={!!busyAction} onClick={() => void qrAction(session.id, "regenerate")}>Regenerate</button>
-                <button type="button" className="button button-secondary danger-button" disabled={!!busyAction} onClick={() => void qrAction(session.id, "invalidate")}>Invalidate</button>
-              </div>
+              {!readOnly && (
+                <div className="form-actions">
+                  <button type="button" className="button button-secondary" disabled={!!busyAction} onClick={() => void qrAction(session.id, "issue")}>{busyAction === `issue:${session.id}` ? "Working…" : "Generate / Show QR"}</button>
+                  <button type="button" className="button button-secondary" disabled={!!busyAction} onClick={() => void qrAction(session.id, "regenerate")}>Regenerate</button>
+                  <button type="button" className="button button-secondary danger-button" disabled={!!busyAction} onClick={() => void qrAction(session.id, "invalidate")}>Invalidate</button>
+                </div>
+              )}
               {state?.error && <p className="form-error" role="alert">{state.error}</p>}
               {state?.expiresAt && <small>Expires: {new Date(state.expiresAt).toLocaleString(locale)}</small>}
             </div>
             <div className="attendance-session-tools">
-              {state?.token ? <QRCodeSVG value={state.token} size={160} level="M" includeMargin aria-label={`QR: ${session.title}`} /> : <div className="qr-placeholder">QR not generated</div>}
+              {!readOnly && state?.token ? <QRCodeSVG value={state.token} size={160} level="M" includeMargin aria-label={`QR: ${session.title}`} /> : <div className="qr-placeholder">{readOnly ? "Archived" : "QR not generated"}</div>}
             </div>
           </article>
         );

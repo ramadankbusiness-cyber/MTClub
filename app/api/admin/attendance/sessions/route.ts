@@ -12,7 +12,12 @@ async function GETInternal() {
     const committeeAccess = await requirePermission("attendance.read.committee");
     if ("error" in committeeAccess) return NextResponse.json({ error: committeeAccess.error }, { status: committeeAccess.status });
     const sessions = await prisma.attendanceSession.findMany({
-      where: { OR: [{ committeeId: null }, { committeeId: committeeAccess.user.committeeId }] },
+      where: {
+        AND: [
+          { OR: [{ committeeId: null }, { committeeId: committeeAccess.user.committeeId }] },
+          { OR: [{ eventId: null }, { event: { archivedAt: null } }] },
+        ],
+      },
       include: {
         committee: { select: { id: true, name: true } },
         zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
@@ -23,10 +28,11 @@ async function GETInternal() {
     return NextResponse.json({ sessions });
   }
   const sessions = await prisma.attendanceSession.findMany({
+    where: { OR: [{ eventId: null }, { event: { archivedAt: null } }] },
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
-      event: { select: { id: true, title: true, isOpen: true, qrAttendanceOpen: true, startsAt: true, endsAt: true } },
+      event: { select: { id: true, title: true, isOpen: true, qrAttendanceOpen: true, startsAt: true, endsAt: true, archivedAt: true } },
       _count: { select: { records: true } },
     },
     orderBy: { startsAt: "desc" },

@@ -29,7 +29,10 @@ export default async function ExcusesPage({ params }: Props) {
     }),
     canReview ? Promise.resolve([]) : prisma.attendanceSession.findMany({
       where: {
-        OR: [{ committeeId: null }, { committeeId: user.committeeId }],
+        AND: [
+          { OR: [{ committeeId: null }, { committeeId: user.committeeId }] },
+          { OR: [{ eventId: null }, { event: { archivedAt: null } }] },
+        ],
         endsAt: { gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
       },
       orderBy: { startsAt: "desc" },

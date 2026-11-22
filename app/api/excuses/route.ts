@@ -40,8 +40,9 @@ async function POSTInternal(request: Request) {
   const body: unknown = await request.json().catch(() => null);
   const parsed = excuseSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Choose a session and explain your request." }, { status: 400 });
-  const session = await prisma.attendanceSession.findUnique({ where: { id: parsed.data.sessionId }, select: { id: true, committeeId: true } });
+  const session = await prisma.attendanceSession.findUnique({ where: { id: parsed.data.sessionId }, select: { id: true, committeeId: true, event: { select: { archivedAt: true } } } });
   if (!session) return NextResponse.json({ error: "Attendance session not found." }, { status: 404 });
+  if (session.event?.archivedAt) return NextResponse.json({ error: "Archived events cannot receive new excuse requests." }, { status: 409 });
   if (session.committeeId && session.committeeId !== access.user.committeeId) {
     return NextResponse.json({ error: "You cannot request an excuse for that session." }, { status: 403 });
   }

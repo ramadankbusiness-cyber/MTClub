@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EventsPage() {
   const events = process.env.DATABASE_URL
-    ? await prisma.event.findMany({ where: { published: true }, orderBy: { startsAt: "asc" }, take: 100 })
+    ? await prisma.event.findMany({ where: { published: true, archivedAt: null }, orderBy: { startsAt: "asc" }, take: 100 })
     : [];
   const now = new Date();
   const publicEvents = events.length ? events.map((event) => ({

@@ -13,7 +13,7 @@ async function POSTInternal(request: Request, context: RouteContext) {
   const { id } = await context.params;
   const url = new URL(request.url);
   const action = url.searchParams.get("action") || "issue";
-  const session = await prisma.attendanceSession.findUnique({ where: { id }, include: { event: { select: { id: true, isOpen: true, qrAttendanceOpen: true } } } });
+  const session = await prisma.attendanceSession.findUnique({ where: { id }, include: { event: { select: { id: true, isOpen: true, qrAttendanceOpen: true, archivedAt: true } } } });
   const now = new Date();
   if (!session) return NextResponse.json({ error: "Attendance session not found." }, { status: 404 });
 
@@ -32,6 +32,7 @@ async function POSTInternal(request: Request, context: RouteContext) {
   }
 
   if (session.event) {
+    if (session.event.archivedAt) return NextResponse.json({ error: "Archived events cannot generate or accept QR attendance." }, { status: 409 });
     if (!session.event.isOpen) return NextResponse.json({ error: "Event is closed. Open the event before enabling QR attendance." }, { status: 409 });
     if (!session.event.qrAttendanceOpen) return NextResponse.json({ error: "QR attendance is closed for this event." }, { status: 409 });
   }
