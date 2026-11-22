@@ -370,7 +370,8 @@
       "confirmed": "Attendance confirmed: {status}.",
       "history": "My attendance history",
       "noCheckinTime": "No check-in time",
-      "historyEmpty": "Your attendance records will appear here after you check in."
+      "historyEmpty": "Your attendance records will appear here after you check in.",
+      "committee": "Committee"
     },
     "dashboard": {
       "admin": "ADMIN DASHBOARD",

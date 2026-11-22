@@ -27,12 +27,21 @@ export function eligibleAttendancePoints(status: string, eventAttendancePoints: 
 }
 
 export async function getUserPointBalance(db: Tx | typeof prisma, userId: string) {
-  const agg = await db.pointTransaction.aggregate({ where: { userId }, _sum: { amount: true } });
+  const agg = await db.pointTransaction.aggregate({
+    where: { userId },
+    _sum: { amount: true },
+  });
   return agg._sum.amount ?? 0;
 }
 
 export async function lockUserPoints(tx: Tx, userId: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`points:${userId}`}))`;
+  await tx.$queryRaw<Array<{ locked: number }>>`
+    WITH advisory_lock AS MATERIALIZED (
+      SELECT pg_advisory_xact_lock(hashtext(${`points:${userId}`}))
+    )
+    SELECT 1::int AS locked
+    FROM advisory_lock
+  `;
 }
 
 async function getAttendanceNet(tx: Tx, attendanceRecordId: string) {
