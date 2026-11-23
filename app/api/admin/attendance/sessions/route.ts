@@ -15,7 +15,12 @@ async function GETInternal() {
       where: {
         AND: [
           { OR: [{ committeeId: null }, { committeeId: committeeAccess.user.committeeId }] },
-          { OR: [{ eventId: null }, { event: { archivedAt: null } }] },
+          {
+            OR: [
+              { origin: "MANUAL" },
+              { origin: "EVENT", eventId: { not: null }, event: { archivedAt: null } },
+            ],
+          },
         ],
       },
       include: {
@@ -28,7 +33,12 @@ async function GETInternal() {
     return NextResponse.json({ sessions });
   }
   const sessions = await prisma.attendanceSession.findMany({
-    where: { OR: [{ eventId: null }, { event: { archivedAt: null } }] },
+    where: {
+      OR: [
+        { origin: "MANUAL" },
+        { origin: "EVENT", eventId: { not: null }, event: { archivedAt: null } },
+      ],
+    },
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },
@@ -56,7 +66,7 @@ async function POSTInternal(request: Request) {
   }
 
   const session = await prisma.attendanceSession.create({
-    data: { ...parsed.data, committeeId, createdById: access.user.id },
+    data: { ...parsed.data, committeeId, createdById: access.user.id, origin: "MANUAL" },
     include: {
       committee: { select: { id: true, name: true } },
       zone: { select: { id: true, name: true, latitude: true, longitude: true, radiusMeters: true } },

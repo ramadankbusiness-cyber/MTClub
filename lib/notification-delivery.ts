@@ -202,7 +202,10 @@ export async function dispatchOperationalReminders(now = new Date()) {
     where: {
       startsAt: { gt: new Date(now.getTime() - 2 * 60_000), lte: now },
       endsAt: { gt: now },
-      OR: [{ eventId: null }, { event: { archivedAt: null } }],
+      OR: [
+        { origin: "MANUAL" },
+        { origin: "EVENT", eventId: { not: null }, event: { archivedAt: null } },
+      ],
     },
     select: { id: true, title: true, committeeId: true, createdById: true },
   });

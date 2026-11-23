@@ -102,6 +102,7 @@ export async function syncEventAttendanceSessions(event: EventLike & { archivedA
       startsAt: window.startsAt,
       endsAt: window.endsAt,
       qrEnabled: event.isOpen && event.qrAttendanceOpen,
+      origin: "EVENT" as const,
       createdById: event.createdById,
     };
     if (target) {
