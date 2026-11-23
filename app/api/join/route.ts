@@ -68,12 +68,9 @@ async function POSTInternal(request: Request) {
     name: application.name,
     email: application.email,
     phone: application.phone,
-    phone_number: application.phone,
     academic_number: application.academicNumber,
-    academicNumber: application.academicNumber,
     committees: application.committees,
     message: application.message,
-    submitted_at: submittedAt,
     created_at: submittedAt,
   };
 
@@ -84,11 +81,11 @@ async function POSTInternal(request: Request) {
     const recentCutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     const { data: recent } = await supabase
       .from("join_applications")
-      .select("id, email, phone, phone_number, academic_number, academicNumber, created_at")
+      .select("id, email, phone, academic_number, created_at")
       .eq("email", application.email)
       .gte("created_at", recentCutoff)
       .limit(5);
-    if (Array.isArray(recent) && recent.some((row) => (row.phone ?? row.phone_number) === application.phone || (row.academicNumber ?? row.academic_number) === application.academicNumber)) {
+    if (Array.isArray(recent) && recent.some((row) => row.phone === application.phone || row.academic_number === application.academicNumber)) {
       return NextResponse.json({ ok: true, duplicate: true }, { status: 200 });
     }
   } catch {
