@@ -7,9 +7,7 @@ import { useSite } from "./site-provider";
 
 const icons: Record<string, LucideIcon> = { sparkles: BookOpen, hammer: Hammer, users: Users };
 
-type HomeStat = { value: string; label: string };
-
-export function HomeContent({ stats = [] }: { stats?: HomeStat[] }) {
+export function HomeContent() {
   const { text, language } = useSite();
   const home = text.home as typeof text.home & { intro?: string };
   const Arrow = language === "ar" ? ArrowLeft : ArrowRight;
@@ -28,16 +26,6 @@ export function HomeContent({ stats = [] }: { stats?: HomeStat[] }) {
             <Link className="button button-secondary button-large" href="/events">{home.eventsButton}</Link>
           </div>
         </div>
-        {stats.length > 0 && (
-          <div className="stats-strip" aria-label="MT Club at a glance">
-            {stats.map((stat) => (
-              <div className="stat-cell" key={stat.label}>
-                <strong>{stat.value}</strong>
-                <span>{stat.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       <section className="content-section what-section">
