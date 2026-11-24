@@ -371,7 +371,16 @@
       "history": "My attendance history",
       "noCheckinTime": "No check-in time",
       "historyEmpty": "Your attendance records will appear here after you check in.",
-      "committee": "Committee"
+      "committee": "Committee",
+      "noRearCamera": "No rear camera was found on this device. A rear camera is required for attendance scanning.",
+      "cameraStarting": "Starting rear camera…",
+      "cameraPermissionDenied": "Camera permission was denied. Allow rear camera access for this site and try again.",
+      "cameraNotReadable": "The rear camera is in use by another app. Close it and try again.",
+      "cameraUnsupported": "Camera access is not available in this browser.",
+      "cameraInsecure": "Camera requires a secure connection (HTTPS).",
+      "cameraGenericError": "Unable to start the rear camera. Please try again.",
+      "scanSuccess": "QR code detected",
+      "cancel": "Cancel"
     },
     "dashboard": {
       "admin": "ADMIN DASHBOARD",
