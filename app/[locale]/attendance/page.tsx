@@ -52,9 +52,12 @@ export default async function AttendancePage({ params }: Props) {
     orderBy: { startsAt: "desc" },
   });
   const isAdmin = user.role === "ADMIN";
-  const [committees, members] = await Promise.all([
+  const [committees, members, ownRecords, ownEligibleSessions, ownAttended] = await Promise.all([
     listClubCommittees(isAdmin ? undefined : user.committeeId),
     isAdmin ? prisma.user.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, committeeId: true, committee: { select: { name: true } } } }) : Promise.resolve([]),
+    isAdmin ? prisma.attendanceRecord.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50, include: { session: { select: { title: true } } } }) : Promise.resolve([]),
+    isAdmin ? prisma.attendanceSession.count({ where: { endsAt: { lte: now }, OR: [{ committeeId: null }, { committeeId: user.committeeId }] } }) : Promise.resolve(0),
+    isAdmin ? prisma.attendanceRecord.count({ where: { userId: user.id, status: { in: ["PRESENT", "LATE"] } } }) : Promise.resolve(0),
   ]);
   const sessionViews: AttendanceSessionView[] = sessions.map((session) => ({
     id: session.id,
@@ -76,7 +79,16 @@ export default async function AttendancePage({ params }: Props) {
     <main id="main-content" className="inner-page">
       <section className="content-section page-intro">
         <div className="section-heading"><p className="eyebrow">{user.role === "ADMIN" ? "ADMIN" : "LEADER"} · {t("eyebrow")}</p><h1>{t("sessionsTitle")}</h1><p className="section-lead">{t("lead")}</p></div>
-        <AttendanceTools role={user.role} initialSessions={sessionViews} committees={committees} members={members} records={[]} attendanceRate={0} userRole={user.role} userCommitteeId={user.committeeId} />
+        <AttendanceTools
+          role={user.role}
+          initialSessions={sessionViews}
+          committees={committees}
+          members={members}
+          records={ownRecords.map((record) => ({ ...record, checkedInAt: record.checkedInAt?.toISOString() ?? null }))}
+          attendanceRate={ownEligibleSessions ? Math.round(ownAttended / ownEligibleSessions * 100) : 0}
+          userRole={user.role}
+          userCommitteeId={user.committeeId}
+        />
       </section>
     </main>
   );
