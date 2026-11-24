@@ -503,7 +503,8 @@
         "empty": "نعمل على تحديث صفحة الفريق. ارجع قريبًا من فضلك.",
         "website": "الموقع",
         "linkedin": "لينكدإن",
-        "instagram": "إنستغرام"
+        "instagram": "إنستغرام",
+        "committeeLabel": "لجنة"
       },
       "teamManager": {
         "controls": "إعدادات المسؤول",

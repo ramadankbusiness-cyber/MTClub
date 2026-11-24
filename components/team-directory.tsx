@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SectionHeading } from "@/components/section-heading";
 import { useSite } from "@/components/site-provider";
 import { useTranslations } from "next-intl";
@@ -14,6 +14,65 @@ function compareMembers(a: ManagedTeamMember, b: ManagedTeamMember) {
   const ap = POSITION_ORDER[(a.position ?? "LEADER") as PositionLevel] ?? 2;
   const bp = POSITION_ORDER[(b.position ?? "LEADER") as PositionLevel] ?? 2;
   return ap - bp || (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name);
+}
+
+function useReveal() {
+  const ref = useRef<HTMLElement | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (typeof window === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || !("IntersectionObserver" in window)) {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, visible };
+}
+
+type CommitteeHeadingProps = {
+  id: string;
+  index: number;
+  name: string;
+  label: string;
+  description?: string;
+};
+
+function CommitteeHeading({ id, index, name, label, description }: CommitteeHeadingProps) {
+  return (
+    <header className="team-group-heading">
+      <span className="team-group-index" aria-hidden="true">
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <div className="team-group-heading-body">
+        <p className="team-group-kicker">{label}</p>
+        <div className="team-group-title-row">
+          <h2 id={id} className="team-group-title">{name}</h2>
+          <span className="team-group-rule" aria-hidden="true" />
+        </div>
+        {description ? <p className="team-group-description">{description}</p> : null}
+      </div>
+      <span className="team-group-watermark" aria-hidden="true">{name}</span>
+    </header>
+  );
 }
 
 function MemberCard({ member, index, large = false }: { member: ManagedTeamMember; index: number; large?: boolean }) {
@@ -47,6 +106,38 @@ function MemberCard({ member, index, large = false }: { member: ManagedTeamMembe
   );
 }
 
+function TeamGroupSection({
+  id,
+  index,
+  name,
+  label,
+  description,
+  className = "",
+  gridClassName = "team-grid",
+  children,
+}: {
+  id: string;
+  index: number;
+  name: string;
+  label: string;
+  description?: string;
+  className?: string;
+  gridClassName?: string;
+  children: ReactNode;
+}) {
+  const { ref, visible } = useReveal();
+  return (
+    <section
+      ref={ref}
+      className={`team-group ${visible ? "is-visible" : ""} ${className}`.trim()}
+      aria-labelledby={id}
+    >
+      <CommitteeHeading id={id} index={index} name={name} label={label} description={description} />
+      <div className={gridClassName}>{children}</div>
+    </section>
+  );
+}
+
 export function TeamDirectory({ members, committees = [] }: { members: ManagedTeamMember[]; committees?: DbCommittee[] }) {
   const { language, text } = useSite();
   const pages = useTranslations("site.pages.team");
@@ -71,31 +162,35 @@ export function TeamDirectory({ members, committees = [] }: { members: ManagedTe
   }, [members, committees]);
 
   const hasAny = mtcMembers.length > 0 || grouped.length > 0;
+  let sectionIndex = 0;
   return (
     <>
       <SectionHeading eyebrow={text.team.eyebrow} title={text.team.title} lead={text.team.lead} />
       {!hasAny ? <p className="empty-note">{pages("empty")}</p> : (
         <div className="team-sections">
           {mtcMembers.length > 0 && (
-            <section className="team-group team-group-mtc" aria-labelledby="team-mtc-title">
-              <div className="team-group-heading">
-                <h2 id="team-mtc-title">MTC</h2>
-                <p>{language === "ar" ? "هيدات الفريق" : "The heads of the team"}</p>
-              </div>
-              <div className="team-grid team-grid-mtc">
-                {mtcMembers.map((member, index) => <MemberCard key={member.id} member={member} index={index} large />)}
-              </div>
-            </section>
+            <TeamGroupSection
+              id="team-mtc-title"
+              index={sectionIndex++}
+              name="MTC"
+              label={pages("committeeLabel")}
+              description={language === "ar" ? "هيدات الفريق" : "The heads of the team"}
+              className="team-group-mtc"
+              gridClassName="team-grid team-grid-mtc"
+            >
+              {mtcMembers.map((member, index) => <MemberCard key={member.id} member={member} index={index} large />)}
+            </TeamGroupSection>
           )}
           {grouped.map((group, gi) => (
-            <section className="team-group" key={group.committee.id} aria-labelledby={`team-group-${group.committee.id}`}>
-              <div className="team-group-heading">
-                <h2 id={`team-group-${group.committee.id}`}>{language === "ar" ? group.committee.nameAr : group.committee.name}</h2>
-              </div>
-              <div className="team-grid">
-                {group.members.map((member, index) => <MemberCard key={`${member.id}-${gi}`} member={member} index={index} />)}
-              </div>
-            </section>
+            <TeamGroupSection
+              key={group.committee.id}
+              id={`team-group-${group.committee.id}`}
+              index={sectionIndex++}
+              name={language === "ar" ? group.committee.nameAr : group.committee.name}
+              label={pages("committeeLabel")}
+            >
+              {group.members.map((member, index) => <MemberCard key={`${member.id}-${gi}`} member={member} index={index} />)}
+            </TeamGroupSection>
           ))}
         </div>
       )}

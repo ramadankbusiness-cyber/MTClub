@@ -503,7 +503,8 @@
         "empty": "Our team is being updated. Please check back soon.",
         "website": "Website",
         "linkedin": "LinkedIn",
-        "instagram": "Instagram"
+        "instagram": "Instagram",
+        "committeeLabel": "Committee"
       },
       "teamManager": {
         "controls": "ADMIN CONTROLS",
