@@ -1,8 +1,10 @@
 "use client";
+
+import React from "react";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useSite } from "./site-provider";
 import { NotificationBell } from "./notification-bell";
@@ -21,6 +23,17 @@ export function Navbar() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen && !accountMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenuOpen(false);
+      setAccountMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen, accountMenuOpen]);
 
   return (
     <header className="site-header">

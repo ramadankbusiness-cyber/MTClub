@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-guards";
 import { writeAuditLog } from "@/lib/audit";
+import { reverseAttendancePoints, sendPointNotifications } from "@/lib/points";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -52,7 +53,7 @@ async function DELETEInternal(request: Request, context: RouteContext) {
   let body: unknown = null;
   try { body = await request.json(); } catch { body = null; }
   const reasonRaw = body && typeof body === "object" && "reason" in body ? (body as { reason?: unknown }).reason : undefined;
-  const reason = typeof reasonRaw === "string" && reasonRaw.trim() ? reasonRaw.trim().slice(0, 500) : "Orphaned event-generated session cleanup";
+  const reason = typeof reasonRaw === "string" && reasonRaw.trim() ? reasonRaw.trim().slice(0, 500) : "Admin deleted attendance session";
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -65,36 +66,47 @@ async function DELETEInternal(request: Request, context: RouteContext) {
       const session = locked[0];
       if (!session) return { error: "Attendance session not found.", status: 404 as const };
 
-      if (session.origin !== "EVENT" || session.eventId !== null) {
-        return { error: "Only orphaned event-generated sessions can be deleted by this endpoint.", status: 409 as const };
+      const records = await tx.attendanceRecord.findMany({
+        where: { sessionId: session.id },
+        select: { id: true, userId: true },
+        orderBy: [{ userId: "asc" }, { id: "asc" }],
+      });
+
+      const pointNotifications: Array<Awaited<ReturnType<typeof reverseAttendancePoints>>>[number] = [];
+      for (const record of records) {
+        const notifications = await reverseAttendancePoints(tx, {
+          attendanceRecordId: record.id,
+          userId: record.userId,
+          eventId: session.eventId,
+          reasonBase: session.title,
+          reason: `Attendance session deleted: ${session.title}`,
+          actorId: access.user.id,
+        });
+        pointNotifications.push(...notifications);
       }
 
-      const [recordCount, attemptCount, excuseCount] = await Promise.all([
-        tx.attendanceRecord.count({ where: { sessionId: session.id } }),
-        tx.attendanceAttempt.count({ where: { sessionId: session.id } }),
-        tx.excuse.count({ where: { sessionId: session.id } }),
-      ]);
-      if (recordCount > 0 || attemptCount > 0 || excuseCount > 0) {
-        return {
-          error: "Cannot delete session with attendance history.",
-          status: 409 as const,
-          details: { recordCount, attemptCount, excuseCount },
-        };
-      }
-
-      // Preserve PointTransaction ledger entries; do not delete/modify point history.
+      // Delete dependents explicitly. Preserve PointTransaction ledger entries.
+      await tx.attendanceAttempt.deleteMany({ where: { sessionId: session.id } });
       await tx.qrToken.deleteMany({ where: { sessionId: session.id } });
+      await tx.excuse.deleteMany({ where: { sessionId: session.id } });
+      await tx.attendanceRecord.deleteMany({ where: { sessionId: session.id } });
       await tx.attendanceSession.delete({ where: { id: session.id } });
 
       await writeAuditLog({
         actorId: access.user.id,
-        action: "attendance.session.orphan_cleanup",
+        action: "attendance.session.delete",
         targetType: "AttendanceSession",
         targetId: session.id,
-        details: { title: session.title, reason },
+        details: {
+          title: session.title,
+          reason,
+          origin: session.origin,
+          eventId: session.eventId,
+          recordCount: records.length,
+        },
       }, tx);
 
-      return { ok: true as const, deletedSessionId: session.id };
+      return { ok: true as const, deletedSessionId: session.id, pointNotifications };
     });
 
     if ("error" in result) {
@@ -103,6 +115,7 @@ async function DELETEInternal(request: Request, context: RouteContext) {
       return NextResponse.json(payload, { status: result.status });
     }
 
+    await sendPointNotifications(result.pointNotifications);
     return NextResponse.json({ ok: true, deletedSessionId: result.deletedSessionId });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2025") {

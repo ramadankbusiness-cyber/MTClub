@@ -380,7 +380,16 @@
       "cameraInsecure": "Camera requires a secure connection (HTTPS).",
       "cameraGenericError": "Unable to start the rear camera. Please try again.",
       "scanSuccess": "QR code detected",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "deleteSession": "Delete session",
+      "confirmDeleteSession": "Delete attendance session \"{title}\"? This will remove the session and its attendance records. This action cannot be undone.",
+      "deleting": "Deleting...",
+      "sessionDeleted": "Attendance session deleted.",
+      "deleteSessionError": "Unable to delete attendance session.",
+      "delete": "Delete",
+      "confirmDeleteRecord": "Delete attendance record for {name}? This will correct the recorded attendance and update points if applicable.",
+      "deleteRecordError": "Unable to delete attendance record.",
+      "recordDeleted": "Attendance record deleted."
     },
     "dashboard": {
       "admin": "ADMIN DASHBOARD",

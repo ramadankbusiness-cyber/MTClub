@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const tx = {
     $queryRaw: vi.fn(),
-    attendanceRecord: { count: vi.fn() },
-    attendanceAttempt: { count: vi.fn() },
-    excuse: { count: vi.fn() },
+    attendanceRecord: { findMany: vi.fn(), deleteMany: vi.fn(), count: vi.fn() },
+    attendanceAttempt: { count: vi.fn(), deleteMany: vi.fn() },
+    excuse: { count: vi.fn(), deleteMany: vi.fn() },
     qrToken: { deleteMany: vi.fn() },
     attendanceSession: { delete: vi.fn(), deleteMany: vi.fn() },
   };
@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => {
     tx,
     requirePermission: vi.fn(),
     writeAuditLog: vi.fn(async () => undefined),
+    reverseAttendancePoints: vi.fn(async () => []),
+    sendPointNotifications: vi.fn(async () => undefined),
     prisma: {
       attendanceSession: { findMany: vi.fn(), findUnique: vi.fn() },
       $transaction: vi.fn(async (cb: (tx: typeof tx) => unknown) => cb(tx)),
@@ -23,6 +25,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
 vi.mock("@/lib/auth-guards", () => ({ requirePermission: mocks.requirePermission }));
 vi.mock("@/lib/audit", () => ({ writeAuditLog: mocks.writeAuditLog }));
+vi.mock("@/lib/points", () => ({ reverseAttendancePoints: mocks.reverseAttendancePoints, sendPointNotifications: mocks.sendPointNotifications }));
 vi.mock("@/lib/api-error-handler", () => ({ withApiErrorHandling: (fn: unknown) => fn }));
 
 import { GET as GET_SESSIONS } from "@/app/api/admin/attendance/sessions/route";
@@ -35,11 +38,16 @@ describe("attendance session origin/orphan cleanup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.tx.$queryRaw.mockReset();
+    mocks.tx.attendanceRecord.findMany.mockResolvedValue([]);
     mocks.tx.attendanceRecord.count.mockResolvedValue(0);
     mocks.tx.attendanceAttempt.count.mockResolvedValue(0);
     mocks.tx.excuse.count.mockResolvedValue(0);
     mocks.tx.qrToken.deleteMany.mockResolvedValue({ count: 2 });
+    mocks.tx.attendanceAttempt.deleteMany.mockResolvedValue({ count: 0 });
+    mocks.tx.excuse.deleteMany.mockResolvedValue({ count: 0 });
+    mocks.tx.attendanceRecord.deleteMany.mockResolvedValue({ count: 0 });
     mocks.tx.attendanceSession.delete.mockResolvedValue({ id: "s-orphan" });
+    mocks.reverseAttendancePoints.mockResolvedValue([]);
   });
 
   it("ADMIN query returns manual null-event sessions and active event sessions, excludes orphaned EVENT null-event and archived event sessions", async () => {
@@ -81,25 +89,26 @@ describe("attendance session origin/orphan cleanup", () => {
     }));
   });
 
-  it("rejects manual session deletion by orphan cleanup endpoint", async () => {
+  it("allows admin to delete any attendance session (manual/event) safely", async () => {
     mocks.requirePermission.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
     mocks.tx.$queryRaw.mockResolvedValueOnce([{ id: "s1", origin: "MANUAL", eventId: null, title: "Manual" }]);
+    mocks.tx.attendanceRecord.findMany.mockResolvedValueOnce([{ id: "r1", userId: "u1" }]);
+    mocks.reverseAttendancePoints.mockResolvedValueOnce([{ userId: "u1", delta: -1 } as any]);
 
     const res = await (DELETE_SESSION as any)(req("http://localhost/api/admin/attendance/sessions/s1", { method: "DELETE" }), ctx("s1"));
-    expect(res.status).toBe(409);
-    expect(mocks.tx.attendanceSession.delete).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mocks.reverseAttendancePoints).toHaveBeenCalledWith(mocks.tx, expect.objectContaining({ attendanceRecordId: "r1", userId: "u1" }));
+    expect(mocks.tx.attendanceAttempt.deleteMany).toHaveBeenCalledWith({ where: { sessionId: "s1" } });
+    expect(mocks.tx.qrToken.deleteMany).toHaveBeenCalledWith({ where: { sessionId: "s1" } });
+    expect(mocks.tx.excuse.deleteMany).toHaveBeenCalledWith({ where: { sessionId: "s1" } });
+    expect(mocks.tx.attendanceRecord.deleteMany).toHaveBeenCalledWith({ where: { sessionId: "s1" } });
+    expect(mocks.tx.attendanceSession.delete).toHaveBeenCalledWith({ where: { id: "s1" } });
+    expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "attendance.session.delete", targetId: "s1" }), mocks.tx);
+    expect(mocks.sendPointNotifications).toHaveBeenCalled();
+    expect((mocks.tx as any).pointTransaction).toBeUndefined();
   });
 
-  it("rejects active event session deletion (origin EVENT with eventId)", async () => {
-    mocks.requirePermission.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
-    mocks.tx.$queryRaw.mockResolvedValueOnce([{ id: "s1", origin: "EVENT", eventId: "evt-1", title: "Event" }]);
-
-    const res = await (DELETE_SESSION as any)(req("http://localhost/api/admin/attendance/sessions/s1", { method: "DELETE" }), ctx("s1"));
-    expect(res.status).toBe(409);
-    expect(mocks.tx.qrToken.deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("deletes orphan only when history counts are zero; removes QR tokens and session atomically; writes audit log", async () => {
+  it("deletes orphaned event session and preserves point ledger (no pointTransaction mutation)", async () => {
     mocks.requirePermission.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
     mocks.tx.$queryRaw.mockResolvedValueOnce([{ id: "s-orphan", origin: "EVENT", eventId: null, title: "ايفنت الهاندميد" }]);
 
@@ -110,44 +119,16 @@ describe("attendance session origin/orphan cleanup", () => {
     }), ctx("s-orphan"));
 
     expect(res.status).toBe(200);
-    expect(mocks.tx.attendanceRecord.count).toHaveBeenCalledWith({ where: { sessionId: "s-orphan" } });
-    expect(mocks.tx.attendanceAttempt.count).toHaveBeenCalledWith({ where: { sessionId: "s-orphan" } });
-    expect(mocks.tx.excuse.count).toHaveBeenCalledWith({ where: { sessionId: "s-orphan" } });
     expect(mocks.tx.qrToken.deleteMany).toHaveBeenCalledWith({ where: { sessionId: "s-orphan" } });
     expect(mocks.tx.attendanceSession.delete).toHaveBeenCalledWith({ where: { id: "s-orphan" } });
-    // PointTransaction history never modified
     expect((mocks.tx as any).pointTransaction).toBeUndefined();
     expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       actorId: "admin1",
-      action: "attendance.session.orphan_cleanup",
+      action: "attendance.session.delete",
       targetType: "AttendanceSession",
       targetId: "s-orphan",
       details: expect.objectContaining({ title: "ايفنت الهاندميد", reason: "Confirmed orphan cleanup" }),
     }), mocks.tx);
-  });
-
-  it("rejects orphan deletion when records/attempts/excuses exist (409)", async () => {
-    mocks.requirePermission.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
-    mocks.tx.$queryRaw.mockResolvedValueOnce([{ id: "s-orphan", origin: "EVENT", eventId: null, title: "Orphan" }]);
-    mocks.tx.attendanceRecord.count.mockResolvedValue(1);
-
-    const res = await (DELETE_SESSION as any)(req("http://localhost/api/admin/attendance/sessions/s-orphan", { method: "DELETE" }), ctx("s-orphan"));
-    expect(res.status).toBe(409);
-    const body = await res.json();
-    expect(body.error).toMatch(/history/i);
-    expect(mocks.tx.qrToken.deleteMany).not.toHaveBeenCalled();
-    expect(mocks.tx.attendanceSession.delete).not.toHaveBeenCalled();
-    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
-  });
-
-  it("cleanup transaction rolls back on failure (no audit log)", async () => {
-    mocks.requirePermission.mockResolvedValue({ user: { id: "admin1", role: "ADMIN" } });
-    mocks.tx.$queryRaw.mockResolvedValueOnce([{ id: "s-orphan", origin: "EVENT", eventId: null, title: "Orphan" }]);
-    mocks.tx.attendanceSession.delete.mockRejectedValueOnce(new Error("db fail"));
-    mocks.prisma.$transaction.mockImplementationOnce(async (cb: any) => cb(mocks.tx));
-
-    await expect((DELETE_SESSION as any)(req("http://localhost/api/admin/attendance/sessions/s-orphan", { method: "DELETE" }), ctx("s-orphan"))).rejects.toThrow("db fail");
-    expect(mocks.writeAuditLog).not.toHaveBeenCalled();
   });
 
   it("requires admin manage permission (leaders denied)", async () => {
@@ -171,7 +152,6 @@ describe("attendance session origin/orphan cleanup", () => {
     mocks.prisma.$transaction.mockImplementationOnce(async (cb: any) => cb(mocks.tx));
 
     await expect((DELETE_SESSION as any)(req("http://localhost/api/admin/attendance/sessions/s-orphan", { method: "DELETE" }), ctx("s-orphan"))).rejects.toThrow("audit fail");
-    expect(mocks.tx.qrToken.deleteMany).toHaveBeenCalled(); // attempted inside tx, but tx would roll back in real DB
-    expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "attendance.session.orphan_cleanup" }), mocks.tx);
+    expect(mocks.sendPointNotifications).not.toHaveBeenCalled();
   });
 });

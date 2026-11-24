@@ -313,3 +313,48 @@ describe("QrScannerView behavior", () => {
     expect(() => unmount()).not.toThrow();
   });
 });
+
+describe("attendance deletion UI", () => {
+  it("admin can delete a session with confirmation and UI updates immediately", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const fetchMock = vi.fn(async (url: any, init?: any) => {
+      if (String(url).includes("/records?userId=") && init?.method === "DELETE") return { ok: true, json: async () => ({ ok: true }) } as any;
+      if (String(url).endsWith("/sessions/s1") && init?.method === "DELETE") return { ok: true, json: async () => ({ ok: true }) } as any;
+      if (String(url).includes("/api/admin/attendance/sessions/s1")) return { ok: true, json: async () => ({ records: [{ id: "r1", userId: "u1", status: "PRESENT", checkedInAt: null, user: { name: "User 1", committee: null } }], attempts: [] }) } as any;
+      return { ok: true, json: async () => ({}) } as any;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AttendanceTools role="ADMIN" initialSessions={[{ id: "s1", title: "Session 1", startsAt: new Date().toISOString(), endsAt: new Date().toISOString(), lateAfterMinutes: 10, qrMode: "ROTATING", committee: null, zone: null, centerLat: null, centerLng: null, radiusMeters: null, locationAccuracy: null, placeName: null, recordCount: 1 }]} committees={[]} members={[]} records={[]} attendanceRate={0} />);
+
+    const deleteSessionBtn = screen.getByRole("button", { name: "deleteSession" });
+    fireEvent.click(deleteSessionBtn);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/admin/attendance/sessions/s1", expect.objectContaining({ method: "DELETE" })));
+    await waitFor(() => expect(screen.queryByText("Session 1")).toBeNull());
+
+    confirmSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("admin can delete an individual attendance record with confirmation and UI updates immediately", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const fetchMock = vi.fn(async (url: any, init?: any) => {
+      if (String(url).includes("/records?userId=u1") && init?.method === "DELETE") return { ok: true, json: async () => ({ ok: true }) } as any;
+      if (String(url).includes("/api/admin/attendance/sessions/s1")) return { ok: true, json: async () => ({ records: [{ id: "r1", userId: "u1", status: "PRESENT", checkedInAt: null, user: { name: "User 1", committee: null } }], attempts: [] }) } as any;
+      return { ok: true, json: async () => ({}) } as any;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AttendanceTools role="ADMIN" initialSessions={[{ id: "s1", title: "Session 1", startsAt: new Date().toISOString(), endsAt: new Date().toISOString(), lateAfterMinutes: 10, qrMode: "ROTATING", committee: null, zone: null, centerLat: null, centerLng: null, radiusMeters: null, locationAccuracy: null, placeName: null, recordCount: 1 }]} committees={[]} members={[]} records={[]} attendanceRate={0} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "live" }));
+    await waitFor(() => expect(screen.getByText("User 1")).toBeTruthy());
+    const deleteBtn = screen.getByRole("button", { name: "delete" });
+    fireEvent.click(deleteBtn);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/records?userId=u1"), expect.objectContaining({ method: "DELETE" })));
+    await waitFor(() => expect(screen.queryByText("User 1")).toBeNull());
+
+    confirmSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+});

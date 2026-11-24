@@ -380,7 +380,16 @@
       "cameraInsecure": "تتطلب الكاميرا اتصالاً آمنًا (HTTPS).",
       "cameraGenericError": "تعذر تشغيل الكاميرا الخلفية. يرجى المحاولة مرة أخرى.",
       "scanSuccess": "تم اكتشاف رمز QR",
-      "cancel": "إلغاء"
+      "cancel": "إلغاء",
+      "deleteSession": "حذف الجلسة",
+      "confirmDeleteSession": "هل تريد حذف جلسة الحضور \"{title}\"؟ سيؤدي ذلك إلى إزالة الجلسة وسجلات الحضور المرتبطة بها. لا يمكن التراجع عن هذا الإجراء.",
+      "deleting": "جارٍ الحذف...",
+      "sessionDeleted": "تم حذف جلسة الحضور.",
+      "deleteSessionError": "تعذر حذف جلسة الحضور.",
+      "delete": "حذف",
+      "confirmDeleteRecord": "هل تريد حذف سجل حضور {name}؟ سيؤدي ذلك إلى تصحيح الحضور المسجل وتحديث النقاط إن وجدت.",
+      "deleteRecordError": "تعذر حذف سجل الحضور.",
+      "recordDeleted": "تم حذف سجل الحضور."
     },
     "dashboard": {
       "admin": "لوحة تحكم المسؤول",

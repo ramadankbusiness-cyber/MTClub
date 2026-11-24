@@ -76,6 +76,7 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
   const [qrMode, setQrMode] = useState<"ROTATING" | "STATIC">("ROTATING");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [zoneValue, setZoneValue] = useState<ZoneCaptureValue>({ latitude: 30.0444, longitude: 31.2357, radiusMeters: 100, accuracy: null, placeName: null, saveAsZone: false, zoneName: null, zoneId: null });
 
   async function createSession(event: FormEvent<HTMLFormElement>) {
@@ -123,6 +124,27 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
     }
   }
 
+  async function deleteSession(session: AttendanceSessionView) {
+    if (!isAdmin) return;
+    const confirmed = window.confirm(t("confirmDeleteSession", { title: session.title }));
+    if (!confirmed) return;
+    setDeletingSessionId(session.id);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/attendance/sessions/${session.id}`, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? t("deleteSessionError"));
+      setSessions((current) => current.filter((item) => item.id !== session.id));
+      setMessage(t("sessionDeleted"));
+    } catch (error) {
+      const errorMessage = error instanceof Error && error.message ? error.message : t("deleteSessionError");
+      setMessage(errorMessage);
+      showToast(errorMessage);
+    } finally {
+      setDeletingSessionId(null);
+    }
+  }
+
   return (
     <div className="attendance-layout">
       {isAdmin && <form className="team-edit-form attendance-create-form" onSubmit={createSession}>
@@ -161,7 +183,11 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
               <span className="compact-badge">{t("lateAfterShort", { minutes: session.lateAfterMinutes })}</span>
               <span className="compact-badge">{session.qrMode === "STATIC" ? t("static") : t("rotating")}</span>
             </div>
-            <div className="attendance-session-actions"><LiveCheckIns sessionId={session.id} /><button type="button" onClick={() => window.location.assign("/api/admin/attendance/export")}>{t("exportCsv")}</button></div>
+            <div className="attendance-session-actions">
+              <LiveCheckIns sessionId={session.id} isAdmin={isAdmin} onRecordDeleted={() => setSessions((current) => current.map((s) => s.id === session.id ? { ...s, recordCount: Math.max(0, s.recordCount - 1) } : s))} />
+              <button type="button" onClick={() => window.location.assign("/api/admin/attendance/export")}>{t("exportCsv")}</button>
+              {isAdmin && <button type="button" className="danger-button" disabled={deletingSessionId === session.id} onClick={() => void deleteSession(session)}>{deletingSessionId === session.id ? t("deleting") : t("deleteSession")}</button>}
+            </div>
           </div>
           <div className="attendance-session-tools">
             {isAdmin && <AttendanceQr session={session} />}
@@ -207,12 +233,13 @@ function ManualAttendance({ session, members }: { session: AttendanceSessionView
   </div>;
 }
 
-function LiveCheckIns({ sessionId }: { sessionId: string }) {
+function LiveCheckIns({ sessionId, isAdmin, onRecordDeleted }: { sessionId: string; isAdmin: boolean; onRecordDeleted?: () => void }) {
   const t = useTranslations("site.attendance");
   const [open, setOpen] = useState(false);
-  const [records, setRecords] = useState<{ id: string; status: string; checkedInAt: string | null; user: { name: string; committee: { name: string } | null } }[]>([]);
+  const [records, setRecords] = useState<{ id: string; userId: string; status: string; checkedInAt: string | null; user: { id?: string; name: string; committee: { name: string } | null } }[]>([]);
   const [attempts, setAttempts] = useState<{ id: string; reason: string; status: string; user: { name: string; committee: { name: string } | null } | null; createdAt: string }[]>([]);
   const [error, setError] = useState("");
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -235,13 +262,38 @@ function LiveCheckIns({ sessionId }: { sessionId: string }) {
     return () => { active = false; window.clearInterval(timer); };
   }, [open, sessionId]);
 
+  async function deleteRecord(record: { id: string; userId: string; user: { name: string } }) {
+    if (!isAdmin) return;
+    const confirmed = window.confirm(t("confirmDeleteRecord", { name: record.user.name }));
+    if (!confirmed) return;
+    setDeletingRecordId(record.id);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/attendance/sessions/${sessionId}/records?userId=${encodeURIComponent(record.userId)}`, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? t("deleteRecordError"));
+      setRecords((current) => current.filter((item) => item.id !== record.id));
+      onRecordDeleted?.();
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : t("deleteRecordError"));
+    } finally {
+      setDeletingRecordId(null);
+    }
+  }
+
   return (
     <div className="live-checkins">
       <button type="button" className="button button-secondary" aria-expanded={open} onClick={() => setOpen((value) => !value)}>{open ? t("hideLive") : t("live")}</button>
       {open && <div className="live-checkins-details">
         {error && <p className="form-error" role="alert">{error}</p>}
         <strong>{t("refreshing", { count: records.length })}</strong>
-        <ul>{records.map((record) => <li key={record.id}><span>{record.user.name}</span><span>{record.status.toLowerCase()}</span></li>)}</ul>
+        <ul>{records.map((record) => <li key={record.id}>
+          <span>{record.user.name}</span>
+          <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+            <span>{record.status.toLowerCase()}</span>
+            {isAdmin && <button type="button" className="link-danger" disabled={deletingRecordId === record.id} onClick={() => void deleteRecord(record)}>{deletingRecordId === record.id ? t("deleting") : t("delete")}</button>}
+          </span>
+        </li>)}</ul>
         {attempts.length > 0 && <details><summary>{t("recentAttempts", { count: attempts.length })}</summary><ul>{attempts.map((attempt) => <li key={attempt.id}><span>{attempt.user?.name ?? t("unknownMember")} · {attempt.status.toLowerCase()}</span><span>{attempt.reason}</span></li>)}</ul></details>}
       </div>}
     </div>
