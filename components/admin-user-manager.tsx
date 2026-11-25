@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import React, { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useAppToast } from "@/components/app-toast-provider";
 import { useLocale, useTranslations } from "next-intl";
+import { Check, Copy, KeyRound, ShieldAlert } from "lucide-react";
 import { CommitteeSelect } from "@/components/committee-select";
 import { getPositionLabel, type PositionLevel } from "@/data/committees";
 
@@ -42,35 +43,74 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [showTempDialog, setShowTempDialog] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const copyTimeoutRef = useRef<number | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
     return () => {
+      if (copyTimeoutRef.current != null) window.clearTimeout(copyTimeoutRef.current);
       setTemporaryPassword("");
       setShowTempDialog(false);
     };
   }, []);
 
-  function clearTemporaryPassword() {
+  const clearTemporaryPassword = useCallback(() => {
+    if (copyTimeoutRef.current != null) {
+      window.clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = null;
+    }
     setTemporaryPassword("");
     setShowTempDialog(false);
     setCopied(false);
-  }
+    setCopyError("");
+  }, []);
+
+  useEffect(() => {
+    if (!showTempDialog) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        clearTemporaryPassword();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    const focusTimer = window.setTimeout(() => dialogRef.current?.querySelector<HTMLElement>("button")?.focus(), 0);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(focusTimer);
+    };
+  }, [showTempDialog, clearTemporaryPassword]);
 
   function revealTemporaryPassword(password: string) {
+    if (copyTimeoutRef.current != null) {
+      window.clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = null;
+    }
     setCopied(false);
+    setCopyError("");
     setTemporaryPassword(password);
     setShowTempDialog(true);
   }
 
   async function copyTemporaryPassword() {
     if (!temporaryPassword) return;
+    setCopyError("");
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(temporaryPassword);
         setCopied(true);
+        if (copyTimeoutRef.current != null) window.clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = window.setTimeout(() => {
+          setCopied(false);
+          copyTimeoutRef.current = null;
+        }, 2000);
+        return;
       }
+      throw new Error("clipboard-unavailable");
     } catch {
       setCopied(false);
+      setCopyError(t("copyFailed"));
     }
   }
 
@@ -207,14 +247,41 @@ export function AdminUserManager({ initialUsers, committees, userRole, userCommi
 
       {showTempDialog && temporaryPassword && (
         <div className="temp-password-dialog-backdrop" role="presentation" onClick={clearTemporaryPassword}>
-          <dialog open className="temp-password-dialog" aria-label={t("temporaryPassword")} onClick={(event) => event.stopPropagation()}>
-            <h3>{t("temporaryPassword")}</h3>
-            <p className="empty-note">{t("temporaryInfo")}</p>
-            <p className="temporary-password"><code>{temporaryPassword}</code></p>
-            <div className="user-admin-actions">
-              <button type="button" className="button button-secondary" onClick={() => void copyTemporaryPassword()}>{copied ? "Copied" : "Copy"}</button>
-              <button type="button" className="button button-primary" onClick={clearTemporaryPassword}>Close</button>
+          <dialog ref={dialogRef} open className="temp-password-dialog temp-password-card" aria-label={t("temporaryPassword")} onClick={(event) => event.stopPropagation()}>
+            <div className="temp-password-card-header">
+              <span className="temp-password-card-icon" aria-hidden="true"><KeyRound size={20} /></span>
+              <div className="temp-password-card-heading">
+                <p className="temp-password-card-eyebrow">{t("accounts")}</p>
+                <h3>{t("temporaryPassword")}</h3>
+              </div>
             </div>
+
+            <div className="temp-password-value-wrap">
+              <p className="temp-password-label">{t("temporaryPassword")}</p>
+              <p className="temporary-password" aria-label={t("temporaryPassword")}>
+                <code>{temporaryPassword}</code>
+              </p>
+            </div>
+
+            <div className="temp-password-notice" role="note">
+              <ShieldAlert size={16} aria-hidden="true" />
+              <p>{t("temporarySecurityNotice")}</p>
+            </div>
+
+            <div className="temp-password-actions">
+              <button
+                type="button"
+                className={`button button-primary temp-password-copy-btn${copied ? " is-copied" : ""}`}
+                onClick={() => void copyTemporaryPassword()}
+                aria-live="polite"
+              >
+                {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+                <span>{copied ? t("copied") : t("copyPassword")}</span>
+              </button>
+              <button type="button" className="button button-secondary" onClick={clearTemporaryPassword}>{t("closeDialog")}</button>
+            </div>
+
+            {copyError && <p className="form-error temp-password-copy-error" role="alert">{copyError}</p>}
           </dialog>
         </div>
       )}
