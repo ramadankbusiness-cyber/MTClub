@@ -175,6 +175,11 @@ export const attendanceSessionSchema = z.object({
   path: ["endsAt"],
 });
 
+export const reopenAttendanceSessionSchema = z.object({
+  action: z.literal("reopen"),
+  durationMinutes: z.number().int().min(5).max(1440),
+});
+
 export const checkInSchema = z.object({
   token: z.string().min(16).max(4096),
   latitude: z.number().min(-90).max(90),

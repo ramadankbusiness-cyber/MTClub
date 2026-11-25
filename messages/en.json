@@ -168,7 +168,15 @@
       "rules": "Use 12+ characters, including uppercase, lowercase, and a number.",
       "error": "Could not change your password.",
       "saving": "Saving…",
-      "submit": "Set new password"
+      "submit": "Set new password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "requirementsTitle": "Password requirements",
+      "reqLength": "At least 12 characters",
+      "reqUpper": "One uppercase letter",
+      "reqLower": "One lowercase letter",
+      "reqNumber": "One number",
+      "success": "Password updated successfully."
     },
     "errorPages": {
       "notFoundTitle": "Page not found",
@@ -398,7 +406,25 @@
       "delete": "Delete",
       "confirmDeleteRecord": "Delete attendance record for {name}? This will correct the recorded attendance and update points if applicable.",
       "deleteRecordError": "Unable to delete attendance record.",
-      "recordDeleted": "Attendance record deleted."
+      "recordDeleted": "Attendance record deleted.",
+      "statusActive": "Active",
+      "statusExpired": "Expired",
+      "statusUpcoming": "Upcoming",
+      "reopenSession": "Reopen session",
+      "reopenTitle": "Reopen attendance session",
+      "reopenDescription": "Choose how long this session should remain open. Existing attendance records will be preserved.",
+      "reopenDuration": "Open for",
+      "reopenPreset30": "30 minutes",
+      "reopenPreset60": "1 hour",
+      "reopenPreset120": "2 hours",
+      "reopenNewEnd": "New closing time: {time}",
+      "reopenConfirm": "Confirm reopen",
+      "reopening": "Reopening...",
+      "reopenSuccess": "Attendance session reopened.",
+      "reopenError": "Unable to reopen attendance session.",
+      "reopenAlreadyActive": "This attendance session is already active.",
+      "reopenInvalid": "This session cannot be reopened.",
+      "reopenNotFound": "Attendance session not found."
     },
     "dashboard": {
       "admin": "ADMIN DASHBOARD",

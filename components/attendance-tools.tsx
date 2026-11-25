@@ -77,6 +77,9 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const [reopenSessionId, setReopenSessionId] = useState<string | null>(null);
+  const [reopenDurationMinutes, setReopenDurationMinutes] = useState(60);
+  const [reopenBusy, setReopenBusy] = useState(false);
   const [zoneValue, setZoneValue] = useState<ZoneCaptureValue>({ latitude: 30.0444, longitude: 31.2357, radiusMeters: 100, accuracy: null, placeName: null, saveAsZone: false, zoneName: null, zoneId: null });
 
   async function createSession(event: FormEvent<HTMLFormElement>) {
@@ -145,6 +148,52 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
     }
   }
 
+  function sessionStatus(session: AttendanceSessionView) {
+    const now = Date.now();
+    const start = new Date(session.startsAt).getTime();
+    const end = new Date(session.endsAt).getTime();
+    if (start > now) return "upcoming" as const;
+    if (end > now) return "active" as const;
+    return "expired" as const;
+  }
+
+  function localizeReopenError(message: string) {
+    const m = message.toLowerCase();
+    if (m.includes("already active")) return t("reopenAlreadyActive");
+    if (m.includes("cannot be reopened")) return t("reopenInvalid");
+    if (m.includes("not found")) return t("reopenNotFound");
+    if (m.includes("invalid reopen") || m.includes("closing time is invalid")) return t("reopenError");
+    return message || t("reopenError");
+  }
+
+  async function reopenSession(session: AttendanceSessionView) {
+    setReopenBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/admin/attendance/sessions/${session.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reopen", durationMinutes: reopenDurationMinutes }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(localizeReopenError(result.error ?? ""));
+      const updated = result.session as { endsAt: string; _count?: { records?: number } };
+      setSessions((current) => current.map((item) => item.id === session.id ? {
+        ...item,
+        endsAt: updated.endsAt ?? item.endsAt,
+        recordCount: updated._count?.records ?? item.recordCount,
+      } : item));
+      setReopenSessionId(null);
+      setMessage(t("reopenSuccess"));
+    } catch (error) {
+      const errorMessage = error instanceof Error && error.message ? error.message : t("reopenError");
+      setMessage(errorMessage);
+      showToast(errorMessage);
+    } finally {
+      setReopenBusy(false);
+    }
+  }
+
   return (
     <div className="attendance-layout">
       {isAdmin && <form className="team-edit-form attendance-create-form" onSubmit={createSession}>
@@ -173,12 +222,17 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
       </form>}
       <section className="team-edit-form attendance-session-list">
         <h2>{isAdmin ? t("sessions") : t("committeeSessions")}</h2>
-        {sessions.map((session) => <article className="attendance-session-card" key={session.id}>
+        {sessions.map((session) => {
+          const status = sessionStatus(session);
+          const reopeningThis = reopenSessionId === session.id;
+          const newEnd = new Date(Date.now() + reopenDurationMinutes * 60_000);
+          return <article className="attendance-session-card" key={session.id}>
           <div className="attendance-session-copy">
             <p className="eyebrow attendance-session-meta">{session.committee ? getCommitteeLabel(session.committee.name, locale as "en" | "ar") : t("allCommittees")} · {session.zone?.name ?? session.placeName ?? t("noZone")}</p>
             <h3 className="attendance-session-title">{session.title}</h3>
             <p className="attendance-session-dates">{new Date(session.startsAt).toLocaleString(locale)} – {new Date(session.endsAt).toLocaleString(locale)}</p>
             <div className="attendance-session-badges">
+              <span className={`compact-badge attendance-status-badge is-${status}`}>{status === "active" ? t("statusActive") : status === "upcoming" ? t("statusUpcoming") : t("statusExpired")}</span>
               <span className="compact-badge">{t("checkIns", { count: session.recordCount })}</span>
               <span className="compact-badge">{t("lateAfterShort", { minutes: session.lateAfterMinutes })}</span>
               <span className="compact-badge">{session.qrMode === "STATIC" ? t("static") : t("rotating")}</span>
@@ -186,14 +240,37 @@ function SessionManager({ sessions: initialSessions, committees, members, isAdmi
             <div className="attendance-session-actions">
               <LiveCheckIns sessionId={session.id} isAdmin={isAdmin} onRecordDeleted={() => setSessions((current) => current.map((s) => s.id === session.id ? { ...s, recordCount: Math.max(0, s.recordCount - 1) } : s))} />
               <button type="button" onClick={() => window.location.assign("/api/admin/attendance/export")}>{t("exportCsv")}</button>
+              {isAdmin && status === "expired" && <button type="button" className="button button-secondary" onClick={() => { setReopenSessionId(session.id); setReopenDurationMinutes(60); setMessage(""); }}>{t("reopenSession")}</button>}
               {isAdmin && <button type="button" className="danger-button" disabled={deletingSessionId === session.id} onClick={() => void deleteSession(session)}>{deletingSessionId === session.id ? t("deleting") : t("deleteSession")}</button>}
             </div>
+            {isAdmin && reopeningThis && (
+              <div className="reopen-session-dialog" role="dialog" aria-modal="false" aria-label={t("reopenTitle")}>
+                <h4>{t("reopenTitle")}</h4>
+                <p className="reopen-session-description">{t("reopenDescription")}</p>
+                <label className="reopen-session-field">
+                  <span>{t("reopenDuration")}</span>
+                  <div className="reopen-session-presets">
+                    {[30, 60, 120].map((mins) => (
+                      <button key={mins} type="button" className={`button button-secondary${reopenDurationMinutes === mins ? " is-selected" : ""}`} aria-pressed={reopenDurationMinutes === mins} onClick={() => setReopenDurationMinutes(mins)}>
+                        {mins === 30 ? t("reopenPreset30") : mins === 60 ? t("reopenPreset60") : t("reopenPreset120")}
+                      </button>
+                    ))}
+                  </div>
+                </label>
+                <p className="reopen-session-new-end">{t("reopenNewEnd", { time: newEnd.toLocaleString(locale) })}</p>
+                <div className="form-actions">
+                  <button type="button" className="button button-primary" disabled={reopenBusy} onClick={() => void reopenSession(session)}>{reopenBusy ? t("reopening") : t("reopenConfirm")}</button>
+                  <button type="button" className="button button-secondary" disabled={reopenBusy} onClick={() => setReopenSessionId(null)}>{t("cancel")}</button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="attendance-session-tools">
             {isAdmin && <AttendanceQr session={session} />}
             {isAdmin && <ManualAttendance session={session} members={members} />}
           </div>
-        </article>)}
+        </article>;
+        })}
         {!sessions.length && <p className="empty-note">{t("emptySessions")}</p>}
       </section>
     </div>
@@ -329,7 +406,7 @@ function AttendanceQr({ session }: { session: AttendanceSessionView }) {
     void refresh();
     const timer = window.setInterval(() => { if (session.qrMode === "ROTATING") void refresh(); }, 20_000);
     return () => window.clearInterval(timer);
-  }, [session.id, session.qrMode]);
+  }, [session.id, session.qrMode, session.endsAt]);
 
   async function toggleFullscreen() {
     try {

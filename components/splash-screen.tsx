@@ -1,7 +1,7 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
 
 const SESSION_KEY = "mtc-splash-seen";
 
@@ -11,42 +11,59 @@ export function SplashScreen() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     let seen = false;
-    try { seen = window.sessionStorage.getItem(SESSION_KEY) === "1"; } catch { seen = false; }
+    try {
+      seen = window.sessionStorage.getItem(SESSION_KEY) === "1";
+    } catch {
+      seen = false;
+    }
     if (seen) return;
 
-    setVisible(true);
-    try { window.sessionStorage.setItem(SESSION_KEY, "1"); } catch { /* ignore */ }
+    let t1: number | undefined;
+    let t2: number | undefined;
+    let failSafe: number | undefined;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const holdMs = reduced ? 120 : 900;
-    const fadeMs = reduced ? 0 : 420;
+    try {
+      setVisible(true);
+      try {
+        window.sessionStorage.setItem(SESSION_KEY, "1");
+      } catch {
+        // ignore storage failures; fail-open
+      }
 
-    const t1 = window.setTimeout(() => setLeaving(true), holdMs);
-    const t2 = window.setTimeout(() => setVisible(false), holdMs + fadeMs);
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const holdMs = reduced ? 80 : 720;
+      const fadeMs = reduced ? 0 : 280;
+
+      t1 = window.setTimeout(() => setLeaving(true), holdMs);
+      t2 = window.setTimeout(() => setVisible(false), holdMs + fadeMs);
+      failSafe = window.setTimeout(() => setVisible(false), 2400);
+    } catch {
+      setVisible(false);
+    }
+
+    return () => {
+      if (t1 != null) window.clearTimeout(t1);
+      if (t2 != null) window.clearTimeout(t2);
+      if (failSafe != null) window.clearTimeout(failSafe);
+    };
   }, []);
 
   if (!visible) return null;
 
   return (
-    <div className={`splash-screen${leaving ? " is-leaving" : ""}`} role="status" aria-label="MT Club loading" aria-live="polite">
-      <div className="splash-bg" aria-hidden="true">
-        <div className="splash-grid" />
-        <div className="splash-glow splash-glow-a" />
-        <div className="splash-glow splash-glow-b" />
-      </div>
+    <div className={`splash-screen${leaving ? " is-leaving" : ""}`} role="status" aria-label="MT Club" aria-live="polite">
       <div className="splash-content">
         <div className="splash-logo-wrap">
-          <div className="splash-ring" aria-hidden="true" />
-          <Image src="/mt-logo.png" alt="MT Club" width={88} height={88} priority className="splash-logo" />
+          <Image src="/mt-logo.png" alt="MT Club" width={72} height={72} priority className="splash-logo" />
         </div>
-        <div className="splash-wordmark">
+        <p className="splash-wordmark">
           <span className="splash-name">MT Club</span>
           <span className="splash-tag">Medical Technology</span>
-        </div>
-        <div className="splash-robot" aria-hidden="true">
-          <Image src="/robot-error.png" alt="" width={64} height={64} className="splash-robot-img" />
+        </p>
+        <div className="splash-loader" aria-hidden="true">
+          <span className="splash-loader-bar" />
         </div>
       </div>
     </div>

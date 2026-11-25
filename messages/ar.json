@@ -168,7 +168,15 @@
       "rules": "استخدم 12 حرفًا على الأقل تشمل أحرفًا كبيرة وصغيرة ورقمًا.",
       "error": "ما قدرناش نغيّر كلمة المرور.",
       "saving": "جاري الحفظ…",
-      "submit": "تعيين كلمة مرور جديدة"
+      "submit": "تعيين كلمة مرور جديدة",
+      "showPassword": "إظهار كلمة المرور",
+      "hidePassword": "إخفاء كلمة المرور",
+      "requirementsTitle": "متطلبات كلمة المرور",
+      "reqLength": "12 حرفًا على الأقل",
+      "reqUpper": "حرف كبير واحد",
+      "reqLower": "حرف صغير واحد",
+      "reqNumber": "رقم واحد",
+      "success": "تم تحديث كلمة المرور بنجاح."
     },
     "errorPages": {
       "notFoundTitle": "الصفحة مش موجودة",
@@ -398,7 +406,25 @@
       "delete": "حذف",
       "confirmDeleteRecord": "هل تريد حذف سجل حضور {name}؟ سيؤدي ذلك إلى تصحيح الحضور المسجل وتحديث النقاط إن وجدت.",
       "deleteRecordError": "تعذر حذف سجل الحضور.",
-      "recordDeleted": "تم حذف سجل الحضور."
+      "recordDeleted": "تم حذف سجل الحضور.",
+      "statusActive": "نشطة",
+      "statusExpired": "منتهية",
+      "statusUpcoming": "قادمة",
+      "reopenSession": "إعادة فتح الجلسة",
+      "reopenTitle": "إعادة فتح جلسة الحضور",
+      "reopenDescription": "اختر المدة التي ستبقى فيها الجلسة مفتوحة. سيتم الحفاظ على سجلات الحضور الحالية.",
+      "reopenDuration": "مدة الفتح",
+      "reopenPreset30": "30 دقيقة",
+      "reopenPreset60": "ساعة واحدة",
+      "reopenPreset120": "ساعتان",
+      "reopenNewEnd": "وقت الإغلاق الجديد: {time}",
+      "reopenConfirm": "تأكيد إعادة الفتح",
+      "reopening": "جارٍ إعادة الفتح...",
+      "reopenSuccess": "تمت إعادة فتح جلسة الحضور.",
+      "reopenError": "تعذر إعادة فتح جلسة الحضور.",
+      "reopenAlreadyActive": "جلسة الحضور هذه نشطة بالفعل.",
+      "reopenInvalid": "لا يمكن إعادة فتح هذه الجلسة.",
+      "reopenNotFound": "لم يتم العثور على جلسة الحضور."
     },
     "dashboard": {
       "admin": "لوحة تحكم المسؤول",
