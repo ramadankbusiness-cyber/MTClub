@@ -365,6 +365,11 @@
       "locationDenied": "Location access was denied. Allow location for this site in your browser settings, then scan again.",
       "locationFailed": "Could not get a precise location. Enable device location services and try again.",
       "checkinFailed": "Could not check in. Please try again.",
+      "alreadyCheckedIn": "You have already checked in to this session.",
+      "invalidQr": "This attendance QR code is invalid or has expired.",
+      "sessionNotOpen": "This attendance session is not open.",
+      "notEligible": "You are not eligible to check in to this session.",
+      "outsideArea": "You are outside the allowed attendance area.",
       "cameraFailed": "Camera access failed. Allow camera access for this site in your browser settings, then reload and try again.",
       "cameraHelp": "If the camera or location is blocked, open your browser’s site settings, allow access, then try again.",
       "confirmed": "Attendance confirmed: {status}.",
@@ -374,6 +379,10 @@
       "committee": "Committee",
       "noRearCamera": "No rear camera was found on this device. A rear camera is required for attendance scanning.",
       "cameraStarting": "Starting rear camera…",
+      "cameraSearching": "Point your rear camera at the QR code",
+      "cameraHoldStill": "Hold still while we recognize the QR code…",
+      "cameraVerifying": "Verifying attendance…",
+      "attendanceRecorded": "Attendance Recorded Successfully",
       "cameraPermissionDenied": "Camera permission was denied. Allow rear camera access for this site and try again.",
       "cameraNotReadable": "The rear camera is in use by another app. Close it and try again.",
       "cameraUnsupported": "Camera access is not available in this browser.",
@@ -503,7 +512,8 @@
         "empty": "Our team is being updated. Please check back soon.",
         "website": "Website",
         "linkedin": "LinkedIn",
-        "instagram": "Instagram"
+        "instagram": "Instagram",
+        "committeeLabel": "Committee"
       },
       "teamManager": {
         "controls": "ADMIN CONTROLS",

@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { AuthSessionProvider } from "@/components/auth-session-provider";
 import { PwaRegistrar } from "@/components/pwa-registrar";
 import { AppToastProvider } from "@/components/app-toast-provider";
+import { SplashScreen } from "@/components/splash-screen";
 import { routing } from "@/i18n/routing";
 import { buildPageMetadata, publicPageDescriptions } from "@/lib/seo";
 
@@ -40,6 +41,7 @@ export default async function LocaleLayout({ children, params }: Props) {
       <AuthSessionProvider>
         <AppToastProvider>
           <SiteProvider>
+            <SplashScreen />
             <a href="#main-content" className="skip-link">
               Skip to content
             </a>

@@ -9,6 +9,7 @@ declare module "next-auth" {
       committeeId: string | null;
       mustChangePassword: boolean;
       sessionVersion: number;
+      image?: string | null;
     };
   }
 
@@ -18,6 +19,7 @@ declare module "next-auth" {
     mustChangePassword: boolean;
     sessionVersion: number;
     rememberMe?: boolean;
+    image?: string | null;
   }
 }
 
@@ -28,5 +30,6 @@ declare module "next-auth/jwt" {
     mustChangePassword: boolean;
     sessionVersion: number;
     rememberMe?: boolean;
+    image?: string | null;
   }
 }

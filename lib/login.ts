@@ -14,6 +14,7 @@ export type LoginAccount = {
   mustChangePassword: boolean;
   temporaryPasswordExpiresAt: Date | null;
   sessionVersion: number;
+  photoUrl: string | null;
 };
 
 export type LoginFailure = "invalid" | "disabled" | "locked";

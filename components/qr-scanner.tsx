@@ -10,9 +10,14 @@ type Props = {
   onError?: (message: string) => void;
   active: boolean;
   busy?: boolean;
+  success?: boolean;
   className?: string;
   labels?: {
     starting?: string;
+    searching?: string;
+    holdStill?: string;
+    verifying?: string;
+    success?: string;
     noRearCamera?: string;
     insecure?: string;
     unsupported?: string;
@@ -144,7 +149,7 @@ async function pickRearCameraDeviceId(): Promise<{ deviceId: string | null; hasV
   }
 }
 
-export function QrScannerView({ onDecode, onError, active, busy = false, className, labels }: Props) {
+export function QrScannerView({ onDecode, onError, active, busy = false, success = false, className, labels }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -160,9 +165,15 @@ export function QrScannerView({ onDecode, onError, active, busy = false, classNa
   const lastCornersRef = useRef<Point[] | null>(null);
   const lastValueRef = useRef<string | null>(null);
   const successUntilRef = useRef(0);
+  const recognitionValueRef = useRef<string | null>(null);
+  const recognitionStartedAtRef = useRef(0);
+  const decodedValueRef = useRef<string | null>(null);
+  const cooldownUntilRef = useRef(0);
+  const successRef = useRef(false);
   const mountedRef = useRef(true);
   const [status, setStatus] = useState<QrScannerStatus>("idle");
   const [statusText, setStatusText] = useState<string>("");
+  const [recognitionProgress, setRecognitionProgress] = useState(0);
 
   useEffect(() => { onDecodeRef.current = onDecode; }, [onDecode]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
@@ -173,6 +184,23 @@ export function QrScannerView({ onDecode, onError, active, busy = false, classNa
     setStatus(s);
     setStatusText(text);
   }, []);
+
+  useEffect(() => {
+    successRef.current = success;
+    if (success) {
+      setRecognitionProgress(1);
+      setStatusSafe("success", labels?.success ?? "");
+    } else if (busy) {
+      setStatusSafe("detected", labels?.verifying ?? "");
+    } else {
+      decodedValueRef.current = null;
+      recognitionValueRef.current = null;
+      recognitionStartedAtRef.current = 0;
+      cooldownUntilRef.current = performance.now() + 1800;
+      setRecognitionProgress(0);
+      if (activeRef.current && mountedRef.current) setStatusSafe("scanning");
+    }
+  }, [success, busy, labels?.success, labels?.verifying, setStatusSafe]);
 
   const clearOverlay = useCallback(() => {
     const canvas = overlayRef.current;
@@ -285,25 +313,51 @@ export function QrScannerView({ onDecode, onError, active, busy = false, classNa
     };
   }, [hardCleanup]);
 
+  const RECOGNITION_MS = 900;
   const emitDetection = useCallback((value: string, corners: Point[] | null, startId: number) => {
     if (startIdRef.current !== startId || !mountedRef.current) return;
     const now = performance.now();
     lastSeenRef.current = now;
     if (corners) lastCornersRef.current = corners;
-    if (corners) drawOverlay(corners, "tracking");
-    if (mountedRef.current) setStatusSafe("detected");
 
-    if (value && value !== lastValueRef.current) {
-      lastValueRef.current = value;
-      successUntilRef.current = now + 700;
-      drawOverlay(lastCornersRef.current ?? corners, "success");
-      if (mountedRef.current) setStatusSafe("success");
-      window.setTimeout(() => {
-        if (startIdRef.current !== startId || !mountedRef.current) return;
-        onDecodeRef.current(value);
-      }, 200);
+    // While submitting or showing success, keep stable overlay but do not decode.
+    if (busyRef.current || successRef.current || decodedValueRef.current) {
+      drawOverlay(lastCornersRef.current ?? corners, successRef.current ? "success" : "tracking");
+      return;
     }
-  }, [drawOverlay, setStatusSafe]);
+
+    if (!value) {
+      drawOverlay(lastCornersRef.current ?? corners, "tracking");
+      setStatusSafe("detected");
+      return;
+    }
+
+    if (now < cooldownUntilRef.current && value === lastValueRef.current) {
+      drawOverlay(lastCornersRef.current ?? corners, "tracking");
+      if (mountedRef.current) setStatusSafe("scanning");
+      return;
+    }
+
+    if (recognitionValueRef.current !== value) {
+      recognitionValueRef.current = value;
+      recognitionStartedAtRef.current = now;
+      setRecognitionProgress(0);
+    }
+
+    const elapsed = now - recognitionStartedAtRef.current;
+    const progress = Math.max(0, Math.min(1, elapsed / RECOGNITION_MS));
+    setRecognitionProgress(progress);
+    drawOverlay(lastCornersRef.current ?? corners, progress >= 1 ? "success" : "tracking");
+    setStatusSafe("detected", labels?.holdStill ?? "");
+
+    if (elapsed >= RECOGNITION_MS && !decodedValueRef.current) {
+      decodedValueRef.current = value;
+      lastValueRef.current = value;
+      setRecognitionProgress(1);
+      drawOverlay(lastCornersRef.current ?? corners, "success");
+      onDecodeRef.current(value);
+    }
+  }, [drawOverlay, labels?.holdStill, setStatusSafe]);
 
   useEffect(() => {
     if (!active) { void stop(); return; }
@@ -459,8 +513,16 @@ export function QrScannerView({ onDecode, onError, active, busy = false, classNa
                 const corners = normalizeCorners(qr.cornerPoints, qr.boundingBox);
                 if (corners) { lastSeenRef.current = now; lastCornersRef.current = corners; drawOverlay(corners, "tracking"); setStatusSafe("detected"); }
               } else {
-                if (now - lastSeenRef.current > 350) { lastCornersRef.current = null; clearOverlay(); if (mountedRef.current && !isCancelled()) setStatusSafe("scanning"); }
-                else if (lastCornersRef.current) drawOverlay(lastCornersRef.current, "tracking");
+                if (now - lastSeenRef.current > 350) {
+                  lastCornersRef.current = null;
+                  recognitionValueRef.current = null;
+                  recognitionStartedAtRef.current = 0;
+                  if (!decodedValueRef.current && !busyRef.current && !successRef.current) setRecognitionProgress(0);
+                  clearOverlay();
+                  if (mountedRef.current && !isCancelled() && !busyRef.current && !successRef.current) setStatusSafe("scanning");
+                } else if (lastCornersRef.current) {
+                  drawOverlay(lastCornersRef.current, busyRef.current || successRef.current ? "success" : "tracking");
+                }
               }
             } catch {
               if (now - lastSeenRef.current > 500) { clearOverlay(); lastCornersRef.current = null; }
@@ -487,8 +549,16 @@ export function QrScannerView({ onDecode, onError, active, busy = false, classNa
               if (text) emitDetection(text, pts, startId);
               else if (pts) { lastSeenRef.current = now; lastCornersRef.current = pts; drawOverlay(pts, "tracking"); setStatusSafe("detected"); }
             } else {
-              if (now - lastSeenRef.current > 400) { lastCornersRef.current = null; clearOverlay(); if (mountedRef.current && !isCancelled()) setStatusSafe("scanning"); }
-              else if (lastCornersRef.current) drawOverlay(lastCornersRef.current, "tracking");
+              if (now - lastSeenRef.current > 400) {
+                lastCornersRef.current = null;
+                recognitionValueRef.current = null;
+                recognitionStartedAtRef.current = 0;
+                if (!decodedValueRef.current && !busyRef.current && !successRef.current) setRecognitionProgress(0);
+                clearOverlay();
+                if (mountedRef.current && !isCancelled() && !busyRef.current && !successRef.current) setStatusSafe("scanning");
+              } else if (lastCornersRef.current) {
+                drawOverlay(lastCornersRef.current, busyRef.current || successRef.current ? "success" : "tracking");
+              }
             }
           });
           if (isCancelled()) { try { controls.stop(); } catch {} return; }
@@ -520,14 +590,50 @@ export function QrScannerView({ onDecode, onError, active, busy = false, classNa
     return () => { startIdRef.current += 1; activeRef.current = false; hardCleanup(); };
   }, [active]);
 
+  const showSweep = status === "scanning" && !busy && !success;
+  const showRecognizing = status === "detected" && !busy && !success;
+  const showVerifying = busy && !success;
+  const showSuccess = success;
+
   return (
     <div className={className ?? "qr-scanner-shell"} data-status={status} aria-label="QR scanner">
       <video ref={videoRef} className="qr-scanner-video" muted autoPlay playsInline />
       <canvas ref={overlayRef} className="qr-scanner-overlay" />
       <div className="qr-scanner-hud" aria-hidden="true">
-        <div className="qr-scanner-frame" />
-        {status === "scanning" && !busy && <div className="qr-scanner-sweep" />}
+        <div className={`qr-scanner-frame${showRecognizing ? " is-recognizing" : ""}${showVerifying ? " is-verifying" : ""}${showSuccess ? " is-success" : ""}`}>
+          <span className="qr-frame-corner tl" />
+          <span className="qr-frame-corner tr" />
+          <span className="qr-frame-corner br" />
+          <span className="qr-frame-corner bl" />
+          {showRecognizing && (
+            <div className="qr-recognition-ring">
+              <svg viewBox="0 0 100 100" className="qr-recognition-svg">
+                <circle cx="50" cy="50" r="46" className="qr-recognition-track" />
+                <circle
+                  cx="50" cy="50" r="46"
+                  className="qr-recognition-progress"
+                  style={{ strokeDasharray: `${2 * Math.PI * 46}`, strokeDashoffset: `${2 * Math.PI * 46 * (1 - recognitionProgress)}` }}
+                />
+              </svg>
+            </div>
+          )}
+        </div>
+        {showSweep && <div className="qr-scanner-sweep" />}
+      </div>
+
+      <div className="qr-scanner-ui" aria-live="polite">
         {status === "starting" && <div className="qr-scanner-status">{statusText || labels?.starting || "Starting rear camera…"}</div>}
+        {status === "scanning" && !busy && !success && <div className="qr-scanner-status qr-scanner-status-subtle">{labels?.searching ?? ""}</div>}
+        {showRecognizing && <div className="qr-scanner-status qr-scanner-status-active">{labels?.holdStill ?? statusText}</div>}
+        {showVerifying && <div className="qr-scanner-status qr-scanner-status-active">{labels?.verifying ?? statusText}</div>}
+        {showSuccess && (
+          <div className="qr-scanner-success" role="status">
+            <div className="qr-success-check" aria-hidden="true">
+              <svg viewBox="0 0 52 52"><circle className="qr-success-circle" cx="26" cy="26" r="24" fill="none" /><path className="qr-success-mark" fill="none" d="M14 27l8 8 16-16" /></svg>
+            </div>
+            <p className="qr-success-title">{labels?.success ?? "Attendance Recorded Successfully"}</p>
+          </div>
+        )}
         {status === "error" && statusText && <div className="qr-scanner-status qr-scanner-status-error">{statusText}</div>}
       </div>
     </div>

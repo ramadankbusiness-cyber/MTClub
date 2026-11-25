@@ -1,13 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
 import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useSite } from "./site-provider";
 import { NotificationBell } from "./notification-bell";
+import { useDismiss } from "@/lib/use-dismiss";
 
 const links = [
   { href: "/", key: "home" },
@@ -23,17 +23,21 @@ export function Navbar() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const accountButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileNavRef = useRef<HTMLElement | null>(null);
+  const mobileButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const closeAccountMenu = useCallback(() => setAccountMenuOpen(false), []);
+  const closeMobileMenu = useCallback(() => setMenuOpen(false), []);
+
+  useDismiss({ enabled: accountMenuOpen, onDismiss: closeAccountMenu, refs: [accountMenuRef, accountButtonRef] });
+  useDismiss({ enabled: menuOpen, onDismiss: closeMobileMenu, refs: [mobileNavRef, mobileButtonRef] });
 
   useEffect(() => {
-    if (!menuOpen && !accountMenuOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setMenuOpen(false);
-      setAccountMenuOpen(false);
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [menuOpen, accountMenuOpen]);
+    setMenuOpen(false);
+    setAccountMenuOpen(false);
+  }, [pathname]);
 
   return (
     <header className="site-header">
@@ -42,7 +46,7 @@ export function Navbar() {
           <Image src="/mt-logo.png" alt="" width={38} height={38} priority />
           <span>MT Club</span>
         </Link>
-        <nav id="site-navigation" className={`main-nav${menuOpen ? " is-open" : ""}`} aria-label={language === "ar" ? "التنقل الرئيسي" : "Main navigation"}>
+        <nav id="site-navigation" ref={mobileNavRef} className={`main-nav${menuOpen ? " is-open" : ""}`} aria-label={language === "ar" ? "التنقل الرئيسي" : "Main navigation"}>
           {links.map(({ href, key }) => (
             <Link
               key={href}
@@ -66,11 +70,23 @@ export function Navbar() {
           {session?.user ? (
             <div className="account-actions">
               <NotificationBell />
-              <button className="avatar-button" type="button" aria-expanded={accountMenuOpen} aria-label={text.nav.account} onClick={() => setAccountMenuOpen((open) => !open)}>
-                {session.user.image ? <Image src={session.user.image} alt={session.user.name ? `${session.user.name} profile photo` : "Profile photo"} width={34} height={34} /> : <Image src="/mt-logo.png" alt="MT Club logo" width={34} height={34} />}
+              <button ref={accountButtonRef} className="avatar-button" type="button" aria-expanded={accountMenuOpen} aria-label={text.nav.account} onClick={() => setAccountMenuOpen((open) => !open)}>
+                {session.user.image ? (
+                  <Image src={session.user.image} alt={session.user.name ? `${session.user.name} profile photo` : "Profile photo"} width={34} height={34} unoptimized />
+                ) : (
+                  <span aria-hidden="true" className="avatar-initials">
+                    {(session.user.name || "?")
+                      .trim()
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part[0]?.toUpperCase() ?? "")
+                      .join("") || "?"}
+                  </span>
+                )}
               </button>
               {accountMenuOpen && (
-                <div className="account-menu">
+                <div ref={accountMenuRef} className="account-menu">
                   <p>{session.user.name}</p>
                   <Link href="/dashboard" onClick={() => setAccountMenuOpen(false)}>{text.nav.dashboard}</Link>
                   <Link href="/attendance" onClick={() => setAccountMenuOpen(false)}>{text.nav.attendance}</Link>
@@ -95,7 +111,7 @@ export function Navbar() {
             </div>
           ) : <Link className="button button-secondary login-button" href="/login">{text.nav.login}</Link>}
           {!session?.user && <Link className="button button-primary nav-join" href="/join">{text.nav.joinUs}<span aria-hidden="true">↗</span></Link>}
-          <button className="icon-button menu-button" type="button" aria-label={text.nav.menu} aria-controls="site-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
+          <button ref={mobileButtonRef} className="icon-button menu-button" type="button" aria-label={text.nav.menu} aria-controls="site-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>

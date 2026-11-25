@@ -351,6 +351,16 @@ function AttendanceQr({ session }: { session: AttendanceSessionView }) {
   );
 }
 
+function localizeAttendanceError(message: string, t: (key: string) => string) {
+  const m = message.toLowerCase();
+  if (m.includes("already checked in")) return t("alreadyCheckedIn");
+  if (m.includes("invalid or has expired")) return t("invalidQr");
+  if (m.includes("session is not open") || m.includes("not open for attendance")) return t("sessionNotOpen");
+  if (m.includes("not eligible to check in")) return t("notEligible");
+  if (m.includes("away from the allowed area") || m.includes("outside")) return t("outsideArea");
+  return message;
+}
+
 async function acquireAttendanceBestPosition(onUpdate: (accuracy: number) => void): Promise<GeolocationPosition> {
   if (!("geolocation" in navigator)) throw Object.assign(new Error("Location unavailable"), { code: 0 });
   return await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -392,51 +402,90 @@ function MemberAttendance({ records, attendanceRate }: { records: AttendanceReco
   const locale = useLocale();
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(false);
+  const [scannerResetKey, setScannerResetKey] = useState(0);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const submittingRef = useRef(false);
   const mountedRef = useRef(true);
+  const resetTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (resetTimerRef.current != null) window.clearTimeout(resetTimerRef.current);
+    };
   }, []);
 
+  function clearResetTimer() {
+    if (resetTimerRef.current != null) {
+      window.clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    }
+  }
+
+  function resetForNextScan(delayMs = 2600) {
+    clearResetTimer();
+    resetTimerRef.current = window.setTimeout(() => {
+      if (!mountedRef.current) return;
+      setScanSuccess(false);
+      setBusy(false);
+      setMessage("");
+      setSuccess(false);
+      setGpsAccuracy(null);
+      submittingRef.current = false;
+    }, delayMs);
+  }
+
   async function stopScanner() {
+    clearResetTimer();
     setScanning(false);
+    setBusy(false);
+    setScanSuccess(false);
+    setGpsAccuracy(null);
+    submittingRef.current = false;
   }
 
   async function submitCheckIn(token: string) {
     if (submittingRef.current) return;
     submittingRef.current = true;
+    clearResetTimer();
     setBusy(true);
+    setScanSuccess(false);
     setSuccess(false);
     setGpsAccuracy(null);
     setMessage(t("locationGetting"));
-    await stopScanner();
     if (typeof window !== "undefined" && !window.isSecureContext) {
-      setMessage("Location and camera require a secure connection (HTTPS).");
+      setMessage(t("cameraInsecure"));
       setBusy(false);
       submittingRef.current = false;
+      setScannerResetKey((k) => k + 1);
       return;
     }
     if (!("geolocation" in navigator)) {
       setMessage(t("locationUnavailable"));
       setBusy(false);
       submittingRef.current = false;
+      setScannerResetKey((k) => k + 1);
       return;
     }
     try {
       const position = await acquireAttendanceBestPosition((accuracy) => {
+        if (!mountedRef.current) return;
         setGpsAccuracy(accuracy);
-        setMessage(`Getting GPS fix… current accuracy ±${Math.round(accuracy)} m`);
+        setMessage(`±${Math.round(accuracy)} m`);
       });
+      if (!mountedRef.current) return;
       setGpsAccuracy(position.coords.accuracy);
       if (position.coords.accuracy > 75) {
-        setMessage(`GPS accuracy is ±${Math.round(position.coords.accuracy)} m, which is not reliable enough yet. Move to an open area and retry.`);
+        setMessage(`±${Math.round(position.coords.accuracy)} m`);
+        setSuccess(false);
         setBusy(false);
         submittingRef.current = false;
+        setScannerResetKey((k) => k + 1);
+        showToast(t("locationFailed"));
         return;
       }
       let deviceId = localStorage.getItem("mt-attendance-device");
@@ -452,36 +501,47 @@ function MemberAttendance({ records, attendanceRate }: { records: AttendanceReco
           accuracy: position.coords.accuracy, timestamp: position.timestamp, deviceId,
         }),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Check-in was not accepted.");
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? t("checkinFailed"));
+      if (!mountedRef.current) return;
       setSuccess(true);
-      setMessage(t("confirmed", { status: result.record.status === "PRESENT" ? t("present") : result.record.status === "LATE" ? t("late") : result.record.status.toLowerCase() }));
+      setScanSuccess(true);
+      const statusLabel = result.record?.status === "PRESENT" ? t("present") : result.record?.status === "LATE" ? t("late") : String(result.record?.status ?? "").toLowerCase();
+      setMessage(t("confirmed", { status: statusLabel }));
+      setBusy(false);
+      submittingRef.current = false;
+      resetForNextScan(2600);
     } catch (error) {
+      if (!mountedRef.current) return;
       setSuccess(false);
+      setScanSuccess(false);
       const geolocationError = error as GeolocationPositionError;
       if (typeof geolocationError?.code === "number" && geolocationError.code > 0) {
         const errorMessage = geolocationError.code === geolocationError.PERMISSION_DENIED
-          ? "Location permission was denied. Enable location access for this site and try again."
+          ? t("locationDenied")
           : geolocationError.code === geolocationError.POSITION_UNAVAILABLE
-            ? "Your device could not determine a reliable location. Move to an open area and try again."
-            : "Getting your location took too long. Move to an open area and try again.";
+            ? t("locationFailed")
+            : t("locationFailed");
         setMessage(errorMessage);
         showToast(errorMessage);
       } else {
-        const errorMessage = error instanceof Error && error.message ? error.message : t("checkinFailed");
+        const errorMessage = error instanceof Error && error.message ? localizeAttendanceError(error.message, t) : t("checkinFailed");
         setMessage(errorMessage);
         showToast(errorMessage);
       }
-    } finally {
       setBusy(false);
       submittingRef.current = false;
+      setScannerResetKey((k) => k + 1);
     }
   }
 
   function startScanner() {
     if (busy) return;
+    clearResetTimer();
     setMessage("");
     setSuccess(false);
+    setScanSuccess(false);
+    setGpsAccuracy(null);
     setScanning(true);
   }
 
@@ -491,15 +551,21 @@ function MemberAttendance({ records, attendanceRate }: { records: AttendanceReco
         <div className="attendance-rate"><strong>{attendanceRate}%</strong><span>{t("yourAttendance")}</span></div>
         <h2>{t("scan")}</h2>
         <p>{t("scanHint")}</p>
-        <div className="attendance-qr-reader" style={{ minHeight: 280 }}>
+        <div className="attendance-qr-reader" style={{ minHeight: 320 }}>
           {scanning && (
             <QrScannerView
+              key={scannerResetKey}
               active={scanning}
               busy={busy}
+              success={scanSuccess}
               onDecode={(value) => { void submitCheckIn(value); }}
-              onError={(msg) => { if (mountedRef.current) { setScanning(false); setMessage(msg); setSuccess(false); showToast(msg); } }}
+              onError={(msg) => { if (mountedRef.current) { setMessage(msg); setSuccess(false); setScanSuccess(false); showToast(msg); } }}
               labels={{
                 starting: t("cameraStarting"),
+                searching: t("cameraSearching"),
+                holdStill: t("cameraHoldStill"),
+                verifying: t("cameraVerifying"),
+                success: t("attendanceRecorded"),
                 noRearCamera: t("noRearCamera"),
                 insecure: t("cameraInsecure"),
                 unsupported: t("cameraUnsupported"),
@@ -511,8 +577,8 @@ function MemberAttendance({ records, attendanceRate }: { records: AttendanceReco
           )}
         </div>
         {!scanning && <button className="button button-primary" type="button" onClick={startScanner} disabled={busy}>{busy ? t("checkingIn") : t("cameraScan")}</button>}
-        {scanning && !busy && <button className="button button-secondary" type="button" onClick={() => void stopScanner()}>{t("cancel")}</button>}
-        {gpsAccuracy != null && busy && <p className="form-message" role="status">Current GPS accuracy: ±{Math.round(gpsAccuracy)} m</p>}
+        {scanning && !busy && !scanSuccess && <button className="button button-secondary" type="button" onClick={() => void stopScanner()}>{t("cancel")}</button>}
+        {gpsAccuracy != null && busy && <p className="form-message" role="status">±{Math.round(gpsAccuracy)} m</p>}
         {message && <p className={success ? "form-message" : "form-error"} role="status">{message}</p>}
         <p className="empty-note">{t("cameraHelp")}</p>
       </section>

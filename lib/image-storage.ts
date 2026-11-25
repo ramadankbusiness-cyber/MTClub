@@ -14,7 +14,7 @@ export class ImageUploadError extends Error {
   }
 }
 
-function getStorageDriver() {
+export function getStorageDriver() {
   const configured = (process.env.STORAGE_DRIVER || "").trim().toLowerCase();
   if (configured === "local" || configured === "supabase" || configured === "cloudinary") return configured;
   return process.env.NODE_ENV === "production" ? "cloudinary" : "local";

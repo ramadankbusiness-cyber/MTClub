@@ -1,10 +1,11 @@
 "use client";
 
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { Bell } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useDismiss } from "@/lib/use-dismiss";
 
 type InboxItem = {
   id: string;
@@ -15,9 +16,17 @@ type InboxItem = {
 export function NotificationBell() {
   const t = useTranslations("site.notifications");
   const { data: session } = useSession();
+  const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
   const [items, setItems] = useState<InboxItem[]>([]);
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss({ enabled: open, onDismiss: close, refs: [wrapRef] });
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   async function refresh() {
     const response = await fetch("/api/notifications?unread=true", { cache: "no-store" });
@@ -51,7 +60,7 @@ export function NotificationBell() {
 
   if (!session?.user) return null;
   return (
-    <div className="notification-bell-wrap">
+    <div className="notification-bell-wrap" ref={wrapRef}>
       <button className="notification-button" type="button" aria-label={`${t("bell")}${unreadCount ? `, ${t("unread", { count: unreadCount })}` : ""}`} aria-expanded={open} onClick={() => { setOpen((value) => !value); if (!open) void refresh(); }}>
         <Bell size={18} aria-hidden="true" />
         {unreadCount > 0 && <span className="notification-count">{unreadCount > 99 ? "99+" : unreadCount}</span>}
