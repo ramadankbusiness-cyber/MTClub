@@ -22,10 +22,12 @@ export function HomeContent({ isAuthenticated = false }: { isAuthenticated?: boo
           <h1>{home.title}</h1>
           <p className="hero-lead">{home.lead}</p>
           {home.intro ? <p className="hero-lead">{home.intro}</p> : null}
-          <div className="hero-actions">
-            <Link className="button button-primary button-large" href="/join">{home.become}<Arrow size={17} aria-hidden="true" /></Link>
-            <Link className="button button-secondary button-large" href="/events">{home.eventsButton}</Link>
-          </div>
+          {!isAuthenticated && (
+            <div className="hero-actions">
+              <Link className="button button-primary button-large" href="/join">{home.become}<Arrow size={17} aria-hidden="true" /></Link>
+              <Link className="button button-secondary button-large" href="/events">{home.eventsButton}</Link>
+            </div>
+          )}
         </div>
       </section>
 
