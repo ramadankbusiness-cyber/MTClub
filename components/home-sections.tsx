@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { Link } from "@/i18n/navigation";
 import { ArrowLeft, ArrowRight, BookOpen, Hammer, Users, type LucideIcon } from "lucide-react";
 import { features as featureMeta } from "@/data/site";
@@ -7,7 +8,7 @@ import { useSite } from "./site-provider";
 
 const icons: Record<string, LucideIcon> = { sparkles: BookOpen, hammer: Hammer, users: Users };
 
-export function HomeContent() {
+export function HomeContent({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const { text, language } = useSite();
   const home = text.home as typeof text.home & { intro?: string };
   const Arrow = language === "ar" ? ArrowLeft : ArrowRight;
@@ -47,16 +48,18 @@ export function HomeContent() {
         </div>
       </section>
 
-      <section className="content-section cta-section">
-        <div className="cta-panel">
-          <div>
-            <p className="eyebrow">{home.ctaEyebrow}</p>
-            <h2>{home.ctaTitle}</h2>
-            <p>{home.ctaText}</p>
+      {!isAuthenticated && (
+        <section className="content-section cta-section">
+          <div className="cta-panel">
+            <div>
+              <p className="eyebrow">{home.ctaEyebrow}</p>
+              <h2>{home.ctaTitle}</h2>
+              <p>{home.ctaText}</p>
+            </div>
+            <Link className="button button-secondary button-large" href="/join">{home.ctaButton}<Arrow size={17} aria-hidden="true" /></Link>
           </div>
-          <Link className="button button-secondary button-large" href="/join">{home.ctaButton}<Arrow size={17} aria-hidden="true" /></Link>
-        </div>
-      </section>
+        </section>
+      )}
     </>
   );
 }
