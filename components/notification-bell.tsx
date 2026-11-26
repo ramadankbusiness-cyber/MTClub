@@ -3,7 +3,7 @@
 import { Link, usePathname } from "@/i18n/navigation";
 import { Bell } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useDismiss } from "@/lib/use-dismiss";
 
@@ -21,8 +21,37 @@ export function NotificationBell() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
   const close = useCallback(() => setOpen(false), []);
   useDismiss({ enabled: open, onDismiss: close, refs: [wrapRef] });
+
+  const updatePopoverPosition = useCallback(() => {
+    const wrap = wrapRef.current;
+    const pop = popRef.current;
+    if (!wrap || !pop) return;
+    const wrapRect = wrap.getBoundingClientRect();
+    const popWidth = pop.offsetWidth;
+    const vw = window.innerWidth;
+    const pad = 8;
+    const isRtl = getComputedStyle(wrap).direction === "rtl";
+    let left = isRtl ? wrapRect.left : wrapRect.right - popWidth;
+    const maxLeft = vw - pad - popWidth;
+    if (left < pad) left = pad;
+    if (left > maxLeft) left = Math.max(pad, maxLeft);
+    pop.style.insetInlineStart = `${left - wrapRect.left}px`;
+    pop.style.insetInlineEnd = "auto";
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePopoverPosition();
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [open, updatePopoverPosition, items.length]);
 
   useEffect(() => {
     setOpen(false);
@@ -65,7 +94,7 @@ export function NotificationBell() {
         <Bell size={18} aria-hidden="true" />
         {unreadCount > 0 && <span className="notification-count">{unreadCount > 99 ? "99+" : unreadCount}</span>}
       </button>
-      {open && <div className="notification-popover" role="region" aria-label={t("recent")}>
+      {open && <div ref={popRef} className="notification-popover" role="region" aria-label={t("recent")}>
         <div className="notification-popover-heading"><strong>{t("bell")}</strong><Link href="/notifications" onClick={() => setOpen(false)}>{t("viewAll")}</Link></div>
         {items.length ? items.map((item) => (
           <div className="notification-preview" key={item.id}>
