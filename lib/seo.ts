@@ -63,6 +63,7 @@ export function buildPageMetadata({
   };
   return {
     metadataBase: new URL(siteConfig.url),
+    applicationName: siteConfig.name,
     title,
     description: desc,
     alternates: {

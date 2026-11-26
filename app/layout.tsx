@@ -9,6 +9,7 @@ const description =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
+  applicationName: siteConfig.name,
   title: {
     default: "MT Club | Learn, create, and grow together",
     template: "%s",
