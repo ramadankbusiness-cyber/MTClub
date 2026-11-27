@@ -1406,3 +1406,38 @@ h1, h2, h3, p { margin-top: 0; }
 }
 @keyframes splashReveal { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes splashLoad { 0% { transform: translateX(-120%); } 100% { transform: translateX(260%); } }
+
+/* Account linking gate */
+.account-linking-shell { display: grid; gap: 20px; max-width: 980px; margin: 0 auto; }
+.account-linking-banner { display: grid; gap: 6px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.account-linking-banner strong { font-size: 15px; line-height: 1.4; }
+.account-linking-banner span { color: var(--muted); font-size: 13px; line-height: 1.6; }
+.account-linking-banner.is-warning { border-color: rgba(34, 211, 238, .28); background: rgba(6, 182, 212, .06); }
+.account-linking-banner.is-complete { border-color: rgba(34, 211, 238, .35); background: rgba(6, 182, 212, .1); }
+.account-linking-message { margin: 0; }
+.account-linking-message.is-error { color: var(--danger, #ef4444); }
+.account-linking-message.is-success { color: var(--accent-strong); }
+.account-linking-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.account-linking-card { display: grid; gap: 14px; align-content: start; padding: 24px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: 0 10px 30px rgba(0,0,0,.04); }
+.account-linking-card.is-linked { border-color: rgba(34, 211, 238, .3); }
+.account-linking-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.account-linking-card-head .eyebrow { margin-bottom: 6px; font-size: 10px; }
+.account-linking-card-head h2 { margin: 0; font-family: var(--heading-font); font-size: clamp(22px, 2.2vw, 28px); line-height: 1.15; letter-spacing: -.03em; }
+.account-linking-state { display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.account-linking-state.is-linked { color: var(--accent-strong); border-color: rgba(34,211,238,.35); background: rgba(6,182,212,.08); }
+.account-linking-state.is-missing { color: var(--muted); }
+.account-linking-desc, .account-linking-detail { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.account-linking-detail { color: var(--ink); font-weight: 500; }
+.account-linking-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-linking-footer { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.account-linking-why { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--bg) 72%, transparent); }
+.account-linking-why h2 { margin: 0 0 8px; font-size: 16px; font-family: var(--heading-font); }
+.account-linking-why p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+@media (max-width: 820px) {
+  .account-linking-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .account-linking-card { padding: 18px; border-radius: 16px; }
+  .account-linking-actions, .account-linking-footer { flex-direction: column; align-items: stretch; }
+  .account-linking-actions .button, .account-linking-footer .button { width: 100%; }
+}

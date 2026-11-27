@@ -19,22 +19,36 @@ export async function getCurrentUser() {
       phone: true,
       photoUrl: true,
       preferredLanguage: true,
+      googleSubject: true,
+      googleEmail: true,
+      googleLinkedAt: true,
+      telegramUserId: true,
+      telegramUsername: true,
+      telegramLinkedAt: true,
     },
   });
 }
 
-export async function requireUser() {
+export function isAccountLinkingComplete(user: { googleSubject?: string | null; telegramUserId?: string | null } | null | undefined) {
+  return !!user?.googleSubject && !!user?.telegramUserId;
+}
+
+export async function requireUser(options?: { allowIncompleteLinking?: boolean }) {
   const user = await getCurrentUser();
   if (!user || !user.isActive) redirect("/login?message=login-required");
   if (user.mustChangePassword) redirect("/change-password");
+  if (!options?.allowIncompleteLinking && !isAccountLinkingComplete(user)) redirect("/account-linking");
   return user;
 }
 
-export async function requirePermission(permission: Permission) {
+export async function requirePermission(permission: Permission, options?: { allowIncompleteLinking?: boolean }) {
   const user = await getCurrentUser();
   if (!user || !user.isActive) return { error: "Unauthorized", status: 401 as const };
   if (user.mustChangePassword && permission !== "profile.update.own") {
     return { error: "Password change required", status: 403 as const };
+  }
+  if (!options?.allowIncompleteLinking && !isAccountLinkingComplete(user)) {
+    return { error: "Account linking required", status: 403 as const };
   }
   if (!hasPermission(user, permission)) return { error: "Forbidden", status: 403 as const };
   return { user };

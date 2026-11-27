@@ -47,7 +47,7 @@ describe("jwtCallback session transition security", () => {
 
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      select: { role: true, committeeId: true, mustChangePassword: true, sessionVersion: true, isActive: true, photoUrl: true },
+      select: { role: true, committeeId: true, mustChangePassword: true, sessionVersion: true, isActive: true, photoUrl: true, googleSubject: true, telegramUserId: true },
     });
     expect(result).toMatchObject({ id: "user-1", role: "LEADER", committeeId: "committee-db", mustChangePassword: false, sessionVersion: 8, sessionJti: "jti-current" });
   });

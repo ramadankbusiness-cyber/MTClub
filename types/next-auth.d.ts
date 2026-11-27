@@ -10,6 +10,8 @@ declare module "next-auth" {
       mustChangePassword: boolean;
       sessionVersion: number;
       image?: string | null;
+      googleLinked: boolean;
+      telegramLinked: boolean;
     };
   }
 
@@ -20,6 +22,8 @@ declare module "next-auth" {
     sessionVersion: number;
     rememberMe?: boolean;
     image?: string | null;
+    googleLinked: boolean;
+    telegramLinked: boolean;
   }
 }
 
@@ -31,5 +35,7 @@ declare module "next-auth/jwt" {
     sessionVersion: number;
     rememberMe?: boolean;
     image?: string | null;
+    googleLinked: boolean;
+    telegramLinked: boolean;
   }
 }

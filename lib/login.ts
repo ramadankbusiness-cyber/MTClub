@@ -15,6 +15,8 @@ export type LoginAccount = {
   temporaryPasswordExpiresAt: Date | null;
   sessionVersion: number;
   photoUrl: string | null;
+  googleLinked: boolean;
+  telegramLinked: boolean;
 };
 
 export type LoginFailure = "invalid" | "disabled" | "locked";

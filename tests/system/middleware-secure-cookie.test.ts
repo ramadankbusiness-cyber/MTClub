@@ -32,7 +32,7 @@ describe("middleware auth token cookie security", () => {
   });
 
   it("uses secure cookies for HTTPS protected-route requests", async () => {
-    getTokenMock.mockResolvedValue({ id: "u1", mustChangePassword: false, sessionVersion: 1 });
+    getTokenMock.mockResolvedValue({ id: "u1", mustChangePassword: false, sessionVersion: 1, googleLinked: true, telegramLinked: true });
 
     const response = await middleware(makeRequest("https://mtclub.vercel.app/en/dashboard"));
 

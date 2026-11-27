@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname.replace(/^\/(en|ar)(?=\/|$)/, "") || "/";
   const locale = firstSegment;
-  if (!["/dashboard", "/admin", "/attendance", "/notifications", "/profile", "/excuses", "/change-password"].some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+  if (!["/dashboard", "/admin", "/attendance", "/notifications", "/profile", "/excuses", "/change-password", "/account-linking", "/leaderboard", "/scan"].some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
     return intlResponse;
   }
 
@@ -40,6 +40,11 @@ export async function middleware(request: NextRequest) {
   }
   if (token.mustChangePassword && pathname !== "/change-password") {
     return NextResponse.redirect(new URL(`/${locale}/change-password`, request.url));
+  }
+  const accountLinkingComplete = token.googleLinked === true && token.telegramLinked === true;
+  if (!accountLinkingComplete && pathname !== "/account-linking") {
+    if (token.mustChangePassword && pathname === "/change-password") return intlResponse;
+    return NextResponse.redirect(new URL(`/${locale}/account-linking`, request.url));
   }
   return intlResponse;
 }

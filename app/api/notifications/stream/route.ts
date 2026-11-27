@@ -1,5 +1,5 @@
 import { withApiErrorHandling } from "@/lib/api-error-handler";
-import { getCurrentUser } from "@/lib/auth-guards";
+import { getCurrentUser, isAccountLinkingComplete } from "@/lib/auth-guards";
 import { countUnreadForUser } from "@/lib/notification-delivery";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 async function GETInternal() {
   const user = await getCurrentUser();
   if (!user?.isActive || user.mustChangePassword) return new Response("Unauthorized", { status: 401 });
+  if (!isAccountLinkingComplete(user)) return new Response("Forbidden", { status: 403 });
 
   const encoder = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;

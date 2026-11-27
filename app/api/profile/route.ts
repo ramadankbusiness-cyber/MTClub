@@ -1,7 +1,7 @@
 import { withApiErrorHandling } from "@/lib/api-error-handler";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth-guards";
+import { requirePermission } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit";
 
@@ -11,23 +11,23 @@ const profileSchema = z.object({
 });
 
 async function GETInternal() {
-  const user = await getCurrentUser();
-  if (!user?.isActive) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json({ user });
+  const access = await requirePermission("profile.read.own");
+  if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
+  return NextResponse.json({ user: access.user });
 }
 
 async function PATCHInternal(request: Request) {
-  const user = await getCurrentUser();
-  if (!user?.isActive) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const access = await requirePermission("profile.update.own");
+  if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
   const body: unknown = await request.json().catch(() => null);
   const parsed = profileSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Check your profile details." }, { status: 400 });
   const updated = await prisma.user.update({
-    where: { id: user.id },
+    where: { id: access.user.id },
     data: parsed.data,
     select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true },
   });
-  await writeAuditLog({ actorId: user.id, action: "profile.update", targetType: "User", targetId: user.id });
+  await writeAuditLog({ actorId: access.user.id, action: "profile.update", targetType: "User", targetId: access.user.id });
   return NextResponse.json({ user: updated });
 }
 

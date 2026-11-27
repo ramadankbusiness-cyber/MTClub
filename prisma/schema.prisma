@@ -119,6 +119,13 @@ model User {
   sessionVersion            Int       @default(0)
   photoUrl           String?
   preferredLanguage  String   @default("en") @db.VarChar(2)
+  googleSubject      String?  @unique @db.VarChar(255)
+  googleEmail        String?  @db.VarChar(254)
+  googleLinkedAt     DateTime?
+  telegramUserId     String?  @unique @db.VarChar(32)
+  telegramUsername   String?  @db.VarChar(64)
+  telegramChatId     String?  @db.VarChar(32)
+  telegramLinkedAt   DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   committee          Committee? @relation(fields: [committeeId], references: [id], onDelete: SetNull)
@@ -136,6 +143,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   pointTransactions  PointTransaction[] @relation("PointRecipient")
   actedPointTransactions PointTransaction[] @relation("PointActor")
+  telegramLinkTokens TelegramLinkToken[]
 
   @@index([committeeId, role, isActive])
   @@index([isMTC, position])
@@ -451,4 +459,17 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+}
+
+model TelegramLinkToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique @db.VarChar(128)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
 }

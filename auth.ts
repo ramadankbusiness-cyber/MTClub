@@ -77,12 +77,14 @@ export async function jwtCallback({ token, user, trigger, session }: { token: an
       token.rememberMe = user.rememberMe ?? false;
       token.sessionJti = randomUUID();
       token.image = user.image ?? null;
+      token.googleLinked = user.googleLinked === true;
+      token.telegramLinked = user.telegramLinked === true;
     }
     if (token.id) {
       if (!token.sessionJti) token.sessionJti = randomUUID();
       const currentUser = await prisma.user.findUnique({
         where: { id: token.id as string },
-        select: { role: true, committeeId: true, mustChangePassword: true, sessionVersion: true, isActive: true, photoUrl: true },
+        select: { role: true, committeeId: true, mustChangePassword: true, sessionVersion: true, isActive: true, photoUrl: true, googleSubject: true, telegramUserId: true },
       });
       if (!currentUser?.isActive) return null;
       if (trigger === "update") {
@@ -102,6 +104,8 @@ export async function jwtCallback({ token, user, trigger, session }: { token: an
         token.mustChangePassword = currentUser.mustChangePassword;
         token.sessionVersion = currentUser.sessionVersion;
         token.image = currentUser.photoUrl;
+        token.googleLinked = !!currentUser.googleSubject;
+        token.telegramLinked = !!currentUser.telegramUserId;
         return token;
       }
       if (currentUser.sessionVersion !== token.sessionVersion) return null;
@@ -110,6 +114,8 @@ export async function jwtCallback({ token, user, trigger, session }: { token: an
       token.mustChangePassword = currentUser.mustChangePassword;
       token.sessionVersion = currentUser.sessionVersion;
       token.image = currentUser.photoUrl;
+      token.googleLinked = !!currentUser.googleSubject;
+      token.telegramLinked = !!currentUser.telegramUserId;
     }
     return token;
   } catch (error) {
@@ -152,6 +158,8 @@ export async function authorizeCredentialsRequest(rawCredentials: unknown, reque
             temporaryPasswordExpiresAt: user.temporaryPasswordExpiresAt,
             sessionVersion: user.sessionVersion,
             photoUrl: user.photoUrl,
+            googleLinked: !!user.googleSubject,
+            telegramLinked: !!user.telegramUserId,
           };
         },
         recentFailures: async (normalizedEmail, hashedIp, since) => {
@@ -211,6 +219,8 @@ export async function authorizeCredentialsRequest(rawCredentials: unknown, reque
       mustChangePassword: result.account.mustChangePassword,
       sessionVersion: result.account.sessionVersion,
       rememberMe: result.rememberMe,
+      googleLinked: result.account.googleLinked,
+      telegramLinked: result.account.telegramLinked,
     };
   } catch (error) {
     if (error instanceof DisabledAccountSignin || error instanceof LockedAccountSignin || error instanceof UnexpectedLoginSignin) {
@@ -256,6 +266,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.sessionVersion = token.sessionVersion as number;
         session.user.image = (token.image as string | null | undefined) ?? null;
+        session.user.googleLinked = token.googleLinked === true;
+        session.user.telegramLinked = token.telegramLinked === true;
       }
       return session;
     },
