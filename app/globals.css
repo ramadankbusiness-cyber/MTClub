@@ -1429,6 +1429,20 @@ h1, h2, h3, p { margin-top: 0; }
 .account-linking-desc, .account-linking-detail { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
 .account-linking-detail { color: var(--ink); font-weight: 500; }
 .account-linking-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-linking-provider-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid transparent; font: inherit; font-size: 14px; font-weight: 600; line-height: 1; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, border-color .15s ease, opacity .15s ease; text-decoration: none; }
+.account-linking-provider-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.account-linking-provider-btn:active:not(:disabled) { transform: translateY(0); }
+.account-linking-provider-btn:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 3px; }
+.account-linking-provider-btn:disabled { opacity: .65; cursor: not-allowed; }
+.account-linking-provider-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; width: 20px; height: 20px; }
+.account-linking-provider-icon svg { display: block; width: 20px; height: 20px; }
+.account-linking-provider-label { white-space: nowrap; }
+.account-linking-google-btn { background: #fff; color: #1f1f1f; border-color: #dadce0; box-shadow: 0 1px 2px rgba(60,64,67,.12); }
+.account-linking-google-btn:hover:not(:disabled) { background: #f8f9fa; border-color: #c6c9cc; box-shadow: 0 2px 6px rgba(60,64,67,.16); }
+.account-linking-google-btn:focus-visible { outline-color: #4285F4; }
+.account-linking-telegram-btn { background: #229ED9; color: #fff; border-color: #229ED9; box-shadow: 0 1px 2px rgba(34,158,217,.24); }
+.account-linking-telegram-btn:hover:not(:disabled) { background: #1c93cc; border-color: #1c93cc; box-shadow: 0 4px 12px rgba(34,158,217,.28); }
+.account-linking-telegram-btn:focus-visible { outline-color: #7fd3f7; }
 .account-linking-footer { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 .account-linking-why { padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--bg) 72%, transparent); }
 .account-linking-why h2 { margin: 0 0 8px; font-size: 16px; font-family: var(--heading-font); }
@@ -1439,5 +1453,5 @@ h1, h2, h3, p { margin-top: 0; }
 @media (max-width: 640px) {
   .account-linking-card { padding: 18px; border-radius: 16px; }
   .account-linking-actions, .account-linking-footer { flex-direction: column; align-items: stretch; }
-  .account-linking-actions .button, .account-linking-footer .button { width: 100%; }
+  .account-linking-actions .button, .account-linking-actions .account-linking-provider-btn, .account-linking-footer .button { width: 100%; }
 }
