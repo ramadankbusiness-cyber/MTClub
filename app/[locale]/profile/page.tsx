@@ -20,7 +20,7 @@ export default async function ProfilePage({ params }: Props) {
     <main id="main-content" className="inner-page">
       <section className="content-section page-intro">
         <div className="section-heading"><p className="eyebrow">{t("eyebrow")}</p><h1>{t("title")}</h1><p className="section-lead">{t("lead")}</p></div>
-        <ProfileForm initialName={access.user.name} email={access.user.email} initialPhone={access.user.phone} initialPhoto={access.user.photoUrl} />
+        <ProfileForm initialName={access.user.name} email={access.user.email} initialPhone={access.user.phone} initialPhoto={access.user.photoUrl} initialDateOfBirth={access.user.dateOfBirth ? new Date(access.user.dateOfBirth).toISOString().slice(0,10) : ""} />
         <MemberPointsCard locale={locale} />
       </section>
     </main>

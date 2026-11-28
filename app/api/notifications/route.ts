@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-guards";
 import { notificationSchema } from "@/lib/schemas";
-import { countUnreadForUser, dispatchPushNotification, insertNotificationRecipients, isNotificationType } from "@/lib/notification-delivery";
+import { countUnreadForUser, dispatchPushNotification, insertNotificationRecipients, isMandatoryInAppNotificationType, isNotificationType } from "@/lib/notification-delivery";
 import { writeAuditLog } from "@/lib/audit";
 import { isClubCommitteeId } from "@/lib/committees";
 
@@ -47,29 +47,57 @@ async function GETInternal(request: Request) {
   const requestedType = url.searchParams.get("type");
   if (requestedType && !isNotificationType(requestedType)) return NextResponse.json({ error: "Unknown notification type." }, { status: 400 });
   const type = requestedType && isNotificationType(requestedType) ? requestedType : undefined;
+  const q = (url.searchParams.get("q") || "").trim().slice(0, 100);
+  const limitRaw = Number(url.searchParams.get("limit") || "20");
+  const limit = Number.isFinite(limitRaw) ? Math.min(50, Math.max(1, Math.floor(limitRaw))) : 20;
+  const before = url.searchParams.get("before");
+  const beforeDate = before ? new Date(before) : null;
+  const beforeFilter = beforeDate && !Number.isNaN(beforeDate.getTime()) ? { createdAt: { lt: beforeDate } } : {};
+
+  const hidden = await prisma.notificationPreference.findMany({ where: { userId: access.user.id, inApp: false }, select: { type: true } });
+  const hiddenTypes = new Set(hidden.map((preference) => preference.type).filter((t) => !isMandatoryInAppNotificationType(t)));
+
+  const notificationWhere: import("@/lib/generated/prisma").Prisma.NotificationWhereInput = {
+    ...(type ? { type } : {}),
+    ...(q ? {
+      OR: [
+        { title: { contains: q } },
+        { titleAr: { contains: q } },
+        { message: { contains: q } },
+        { messageAr: { contains: q } },
+      ],
+    } : {}),
+  };
   const rows = await prisma.notificationRecipient.findMany({
     where: {
       userId: access.user.id,
       deliveredAt: { not: null },
+      ...beforeFilter,
       ...(unreadOnly ? { readAt: null } : {}),
-      ...(type ? { notification: { type } } : {}),
+      notification: notificationWhere,
     },
     include: { notification: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: Math.max(limit * 3, 60),
   });
-  const hidden = await prisma.notificationPreference.findMany({ where: { userId: access.user.id, inApp: false }, select: { type: true } });
-  const hiddenTypes = new Set(hidden.map((preference) => preference.type));
-  const notifications = rows.filter((row) => !hiddenTypes.has(row.notification.type)).slice(0, 50).map((row) => ({
+  const filtered = rows.filter((row) => !hiddenTypes.has(row.notification.type)).slice(0, limit + 1);
+  const hasMore = filtered.length > limit;
+  const pageRows = hasMore ? filtered.slice(0, limit) : filtered;
+  const eventIds = Array.from(new Set(pageRows.map((r) => r.notification.eventId).filter((id): id is string => !!id)));
+  const readinessRows = eventIds.length ? await prisma.eventReadiness.findMany({ where: { userId: access.user.id, eventId: { in: eventIds } }, select: { eventId: true } }) : [];
+  const readySet = new Set(readinessRows.map((r) => r.eventId));
+  const notifications = pageRows.map((row) => ({
     ...row,
     notification: {
       ...row.notification,
       title: access.user.preferredLanguage === "ar" ? row.notification.titleAr || row.notification.title : row.notification.title,
       message: access.user.preferredLanguage === "ar" ? row.notification.messageAr || row.notification.message : row.notification.message,
     },
+    eventReadinessInterested: row.notification.eventId ? readySet.has(row.notification.eventId) : false,
   }));
   const unreadCount = await countUnreadForUser(access.user.id);
-  return NextResponse.json({ notifications, unreadCount });
+  const nextCursor = hasMore && pageRows.length ? pageRows[pageRows.length - 1].createdAt.toISOString() : null;
+  return NextResponse.json({ notifications, unreadCount, hasMore, nextCursor });
 }
 
 async function POSTInternal(request: Request) {
@@ -112,7 +140,9 @@ async function POSTInternal(request: Request) {
   const scheduledAt = input.scheduledAt && input.scheduledAt > now ? input.scheduledAt : null;
   const deliverUsers = users.filter((user) => {
     const preference = user.notificationPreferences[0];
-    return preference?.inApp !== false || preference?.push !== false;
+    const inApp = isMandatoryInAppNotificationType(input.type) ? true : preference?.inApp !== false;
+    const push = preference?.push !== false;
+    return inApp || push;
   });
   const notification = await prisma.$transaction(async (transaction) => {
     const created = await transaction.notification.create({

@@ -16,6 +16,14 @@ vi.mock("next-intl", () => ({
   useLocale: () => "en",
 }));
 
+vi.mock("@/i18n/navigation", () => ({
+  Link: ({ children, ...props }: any) => React.createElement("a", props, children),
+  redirect: vi.fn(),
+  usePathname: () => "/",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  getPathname: () => "/",
+}));
+
 vi.mock("@/components/app-toast-provider", () => ({
   useAppToast: () => showToast,
 }));

@@ -90,6 +90,7 @@ async function POSTInternal(request: Request) {
       message: event.description,
       messageAr: event.descriptionAr || event.description,
       link: `/events?event=${encodeURIComponent(event.id)}`,
+      eventId: event.id,
       type: "NEW_EVENT",
       audience: event.committeeId ? "COMMITTEE" : "EVERYONE",
       committeeId: event.committeeId,

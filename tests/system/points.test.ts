@@ -28,9 +28,9 @@ function setupTx() {
     if (s.includes("INSERT INTO \"PointTransaction\"")) return [{ id: "pt-new" }];
     return [];
   });
-  mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
-  mocks.tx.pointTransaction.findUnique.mockResolvedValue(null);
-  mocks.tx.pointTransaction.findMany.mockResolvedValue([]);
+  mocks.tx.pointTransaction.aggregate.mockReset().mockResolvedValue({ _sum: { amount: 0 } });
+  mocks.tx.pointTransaction.findUnique.mockReset().mockResolvedValue(null);
+  mocks.tx.pointTransaction.findMany.mockReset().mockResolvedValue([]);
 }
 
 function session(points = 10) {
@@ -85,7 +85,7 @@ describe("points ledger", () => {
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue(record("ABSENT"));
     mocks.tx.attendanceSession.findUnique.mockResolvedValue(session(10));
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "a1", amount: 10, type: "EVENT_ATTENDANCE" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 10 } });
     const n2 = await syncAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", sessionId: "s1", newStatus: "ABSENT" });
     expect(n2[0].amount).toBe(-10);
 
@@ -115,7 +115,8 @@ describe("points ledger", () => {
       mocks.tx.attendanceRecord.findUnique.mockResolvedValue(record(step.status));
       mocks.tx.attendanceSession.findUnique.mockResolvedValue(session(10));
       mocks.tx.pointTransaction.findMany.mockResolvedValue([...ledger]);
-      mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: Math.max(0, step.desiredNet) } });
+      const currentBalance = ledger.reduce((sum, t) => sum + t.amount, 0);
+      mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: Math.max(0, currentBalance) } });
       const n = await syncAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", sessionId: "s1", newStatus: step.status });
       expect(n[0]?.amount ?? 0).toBe(step.diff);
       ledger.push({ id: `t${ledger.length}`, amount: step.diff, type: step.diff > 0 ? "EVENT_ATTENDANCE" : "ATTENDANCE_REVERSAL" });
@@ -149,7 +150,7 @@ describe("points ledger", () => {
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue(record("PRESENT"));
     mocks.tx.attendanceSession.findUnique.mockResolvedValue(session(5));
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "a1", amount: 10, type: "EVENT_ATTENDANCE" }, { id: "a2", amount: 5, type: "ATTENDANCE_ADJUSTMENT" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 5 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 15 } });
     const n2 = await syncAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", sessionId: "s1", newStatus: "PRESENT" });
     expect(n2[0].amount).toBe(-10);
   });
@@ -181,7 +182,7 @@ describe("points ledger", () => {
     setupTx();
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "a1", amount: 10, type: "EVENT_ATTENDANCE" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 10 } });
     const n2 = await reverseAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", reasonBase: "E" });
     expect(n2).toHaveLength(1);
     expect(n2[0].amount).toBe(-10);
@@ -238,7 +239,7 @@ describe("points ledger", () => {
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue(record("ABSENT"));
     mocks.tx.attendanceSession.findUnique.mockResolvedValue(session(10));
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "a1", amount: 10, type: "EVENT_ATTENDANCE" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 10 } });
     const n2 = await syncAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", sessionId: "s1", newStatus: "ABSENT" });
     expect(n2[0].amount).toBe(-10);
 
@@ -290,7 +291,7 @@ describe("points ledger", () => {
   it("permanent event deletion reversal: PRESENT record reverses full net attendance points", async () => {
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "p1", amount: 10, type: "EVENT_ATTENDANCE" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 10 } });
     const n = await reverseAttendancePoints(mocks.tx as any, {
       attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "Event permanently deleted: E", reason: "Event permanently deleted: E", actorId: "admin"
     });
@@ -302,7 +303,7 @@ describe("points ledger", () => {
   it("permanent event deletion reversal: LATE record reverses full net attendance points", async () => {
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "p1", amount: 10, type: "EVENT_ATTENDANCE" }]); // LATE earns same configured points
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 10 } });
     const n = await reverseAttendancePoints(mocks.tx as any, {
       attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "Event permanently deleted: E", reason: "Event permanently deleted: E"
     });
@@ -326,7 +327,7 @@ describe("points ledger", () => {
       { id: "p1", amount: 10, type: "EVENT_ATTENDANCE" },
       { id: "p2", amount: -4, type: "ATTENDANCE_REVERSAL" },
     ]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 4 } });
+    mocks.tx.pointTransaction.aggregate.mockReset().mockResolvedValue({ _sum: { amount: 4 } });
     const n = await reverseAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "E" });
     expect(n).toHaveLength(1);
     expect(n[0].amount).toBe(-6);
@@ -336,7 +337,7 @@ describe("points ledger", () => {
     // first call: net 10, insert returns created
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "p1", amount: 10, type: "EVENT_ATTENDANCE" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 10 } });
     const n1 = await reverseAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "E" });
     expect(n1).toHaveLength(1);
 
@@ -361,7 +362,7 @@ describe("points ledger", () => {
     mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
     // getAttendanceNet queries only attendance-related types for this attendanceRecordId
     mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "p1", amount: 10, type: "EVENT_ATTENDANCE" }]);
-    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 3 } }); // balance after reversal = 13-10
+    mocks.tx.pointTransaction.aggregate.mockReset().mockResolvedValue({ _sum: { amount: 3 } });
     const n = await reverseAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "E" });
     expect(n).toHaveLength(1);
     expect(n[0].amount).toBe(-10);
@@ -373,5 +374,57 @@ describe("points ledger", () => {
         type: { in: ["EVENT_ATTENDANCE", "ATTENDANCE_ADJUSTMENT", "ATTENDANCE_REVERSAL"] },
       }),
     }));
+  });
+
+  it("manual adjustment with same idempotency key is idempotent and does not double-apply", async () => {
+    mocks.tx.user.findUnique.mockResolvedValue({ id: "u1", isActive: true });
+    // first call: create
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 5 } });
+    mocks.tx.pointTransaction.findUnique.mockResolvedValue({ id: "pt1", userId: "u1", amount: 10, reason: "Bonus", type: "MANUAL_ADD", actorId: "admin" });
+    const r1 = await applyManualPointTransaction(mocks.tx as any, { userId: "u1", amount: 10, reason: "Bonus", actorId: "admin", idempotencyKey: "k1" });
+    expect(r1.idempotent).toBe(false);
+    expect(r1.balance).toBe(15);
+
+    // second call: insert conflict, dedupeKey exists => idempotent
+    setupTx();
+    mocks.tx.user.findUnique.mockResolvedValue({ id: "u1", isActive: true });
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: 15 } });
+    mocks.tx.$queryRaw.mockImplementation(async (strings: any) => {
+      const s = Array.isArray(strings) ? strings.join("") : String(strings);
+      if (s.includes("pg_advisory_xact_lock")) return [];
+      if (s.includes('INSERT INTO "PointTransaction"')) return []; // conflict
+      return [];
+    });
+    mocks.tx.pointTransaction.findUnique.mockResolvedValue({ id: "pt1", userId: "u1", amount: 10, reason: "Bonus", type: "MANUAL_ADD", actorId: "admin" });
+    const r2 = await applyManualPointTransaction(mocks.tx as any, { userId: "u1", amount: 10, reason: "Bonus", actorId: "admin", idempotencyKey: "k1" });
+    expect(r2.idempotent).toBe(true);
+    expect(r2.balance).toBe(15);
+  });
+
+  it("full attendance reversal is preserved even if total balance becomes negative (auditable system correction)", async () => {
+    // Scenario: earned +10 attendance, unrelated manual -8 => balance 2; reversing attendance must record full -10.
+    mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
+    mocks.tx.pointTransaction.findMany.mockResolvedValue([{ id: "p1", amount: 10, type: "EVENT_ATTENDANCE" }]);
+    mocks.tx.pointTransaction.aggregate.mockResolvedValue({ _sum: { amount: -8 } }); // balance after full reversal
+    const n = await reverseAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "E" });
+    expect(n).toHaveLength(1);
+    expect(n[0].amount).toBe(-10); // full reversal, no silent clamp
+    expect(n[0].balance).toBe(-8); // system correction may make balance negative; ledger remains auditable
+    // reversal tx was inserted
+    const inserts = mocks.tx.$queryRaw.mock.calls.filter((c: any[]) => Array.isArray(c[0]) && c[0].join("").includes('INSERT INTO "PointTransaction"'));
+    expect(inserts.length).toBeGreaterThan(0);
+  });
+
+  it("repeated reversal after full reversal remains idempotent (no double-reverse)", async () => {
+    // net already 0 (10 + -10)
+    mocks.tx.attendanceRecord.findUnique.mockResolvedValue({ id: "r1", userId: "u1" });
+    mocks.tx.pointTransaction.findMany.mockResolvedValue([
+      { id: "p1", amount: 10, type: "EVENT_ATTENDANCE" },
+      { id: "p2", amount: -10, type: "ATTENDANCE_REVERSAL" },
+    ]);
+    const n = await reverseAttendancePoints(mocks.tx as any, { attendanceRecordId: "r1", userId: "u1", eventId: "e1", reasonBase: "E" });
+    expect(n).toHaveLength(0);
+    const inserts = mocks.tx.$queryRaw.mock.calls.filter((c: any[]) => Array.isArray(c[0]) && c[0].join("").includes('INSERT INTO "PointTransaction"'));
+    expect(inserts).toHaveLength(0);
   });
 });

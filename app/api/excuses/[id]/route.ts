@@ -36,11 +36,11 @@ async function PATCHInternal(request: Request, context: RouteContext) {
       const record = await transaction.attendanceRecord.upsert({
         where: { userId_sessionId: { userId: excuse.user.id, sessionId: excuse.session.id } },
         create: {
-          userId: excuse.user.id, sessionId: excuse.session.id, status: "EXCUSED",
+          userId: excuse.user.id, sessionId: excuse.session.id, status: "EXCUSED", source: "EXCUSE",
           reason: parsed.data.reviewNote ?? excuse.reason, markedById: access.user.id,
         },
         update: {
-          status: "EXCUSED", reason: parsed.data.reviewNote ?? excuse.reason,
+          status: "EXCUSED", source: "EXCUSE", reason: parsed.data.reviewNote ?? excuse.reason,
           markedById: access.user.id, checkedInAt: null, distanceMeters: null, accuracyMeters: null,
         },
       });

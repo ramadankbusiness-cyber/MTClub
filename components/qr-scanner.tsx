@@ -24,6 +24,8 @@ type Props = {
     permissionDenied?: string;
     notReadable?: string;
     genericError?: string;
+    fullscreen?: string;
+    exitFullscreen?: string;
   };
 };
 
@@ -174,6 +176,10 @@ export function QrScannerView({ onDecode, onError, active, busy = false, success
   const [status, setStatus] = useState<QrScannerStatus>("idle");
   const [statusText, setStatusText] = useState<string>("");
   const [recognitionProgress, setRecognitionProgress] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const prevBodyOverflowRef = useRef<string>("");
+  const prevBodyOverscrollRef = useRef<string>("");
 
   useEffect(() => { onDecodeRef.current = onDecode; }, [onDecode]);
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
@@ -201,6 +207,38 @@ export function QrScannerView({ onDecode, onError, active, busy = false, success
       if (activeRef.current && mountedRef.current) setStatusSafe("scanning");
     }
   }, [success, busy, labels?.success, labels?.verifying, setStatusSafe]);
+
+  useEffect(() => {
+    if (!active) setIsFullscreen(false);
+  }, [active]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    prevBodyOverflowRef.current = document.body.style.overflow;
+    prevBodyOverscrollRef.current = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); setIsFullscreen(false); } };
+    const onResize = () => {
+      const el = shellRef.current;
+      if (el) el.style.height = `${window.visualViewport?.height ?? window.innerHeight}px`;
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("scroll", onResize);
+    onResize();
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("scroll", onResize);
+      document.body.style.overflow = prevBodyOverflowRef.current;
+      document.body.style.overscrollBehavior = prevBodyOverscrollRef.current;
+      const el = shellRef.current;
+      if (el) el.style.height = "";
+    };
+  }, [isFullscreen]);
 
   const clearOverlay = useCallback(() => {
     const canvas = overlayRef.current;
@@ -594,9 +632,8 @@ export function QrScannerView({ onDecode, onError, active, busy = false, success
   const showRecognizing = status === "detected" && !busy && !success;
   const showVerifying = busy && !success;
   const showSuccess = success;
-
   return (
-    <div className={className ?? "qr-scanner-shell"} data-status={status} aria-label="QR scanner">
+    <div ref={shellRef} className={`${className ?? "qr-scanner-shell"}${isFullscreen ? " is-fullscreen" : ""}`} data-status={status} data-fullscreen={isFullscreen ? "true" : "false"} aria-label="QR scanner">
       <video ref={videoRef} className="qr-scanner-video" muted autoPlay playsInline />
       <canvas ref={overlayRef} className="qr-scanner-overlay" />
       <div className="qr-scanner-hud" aria-hidden="true">
@@ -622,6 +659,21 @@ export function QrScannerView({ onDecode, onError, active, busy = false, success
       </div>
 
       <div className="qr-scanner-ui" aria-live="polite">
+        <div className="qr-scanner-controls" style={{ pointerEvents: "auto" }}>
+          <button
+            type="button"
+            className="qr-scanner-fs-btn"
+            onClick={() => setIsFullscreen((v) => !v)}
+            aria-label={isFullscreen ? (labels?.exitFullscreen ?? "Exit fullscreen") : (labels?.fullscreen ?? "Fullscreen")}
+            title={isFullscreen ? (labels?.exitFullscreen ?? "Exit fullscreen") : (labels?.fullscreen ?? "Fullscreen")}
+          >
+            {isFullscreen ? (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            )}
+          </button>
+        </div>
         {status === "starting" && <div className="qr-scanner-status">{statusText || labels?.starting || "Starting rear camera…"}</div>}
         {status === "scanning" && !busy && !success && <div className="qr-scanner-status qr-scanner-status-subtle">{labels?.searching ?? ""}</div>}
         {showRecognizing && <div className="qr-scanner-status qr-scanner-status-active">{labels?.holdStill ?? statusText}</div>}

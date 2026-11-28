@@ -18,16 +18,19 @@ async function GETInternal() {
   });
 }
 
+const MANDATORY_IN_APP_TYPES = new Set(["ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED"]);
+
 async function PATCHInternal(request: Request) {
   const access = await requirePermission("notifications.manage.own");
   if ("error" in access) return NextResponse.json({ error: access.error }, { status: access.status });
   const body: unknown = await request.json().catch(() => null);
   const parsed = notificationPreferenceSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Check your notification preferences." }, { status: 400 });
+  const inApp = MANDATORY_IN_APP_TYPES.has(parsed.data.type) ? true : parsed.data.inApp;
   const preference = await prisma.notificationPreference.upsert({
     where: { userId_type: { userId: access.user.id, type: parsed.data.type } },
-    create: { userId: access.user.id, ...parsed.data },
-    update: { inApp: parsed.data.inApp, push: parsed.data.push },
+    create: { userId: access.user.id, type: parsed.data.type, inApp, push: parsed.data.push },
+    update: { inApp, push: parsed.data.push },
   });
   return NextResponse.json({ preference });
 }

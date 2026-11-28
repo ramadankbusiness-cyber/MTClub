@@ -28,6 +28,13 @@ enum AttendanceStatus {
   EXCUSED
 }
 
+enum AttendanceRecordSource {
+  UNKNOWN
+  QR
+  MANUAL
+  EXCUSE
+}
+
 enum AttendanceAttemptStatus {
   REJECTED
   SUSPICIOUS
@@ -71,6 +78,7 @@ enum NotificationType {
   EXCUSE_DECISION
   POINTS_ADDED
   POINTS_DEDUCTED
+  BIRTHDAY
 }
 
 enum NotificationAudience {
@@ -80,6 +88,58 @@ enum NotificationAudience {
   USERS
   MTC
   POSITION
+}
+
+enum FormAccessMode {
+  MEMBERS_ONLY
+  AUTHENTICATED_USERS
+  PUBLIC
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum FormFieldType {
+  SHORT_ANSWER
+  PARAGRAPH
+  MULTIPLE_CHOICE
+  CHECKBOXES
+  DROPDOWN
+  NUMBER
+  DATE
+  TIME
+  EMAIL
+  PHONE
+  FILE_UPLOAD
+}
+
+enum FormDuplicatePolicy {
+  ALLOW
+  ONE_PER_USER
+  ONE_PER_EMAIL
+  ONE_PER_IP
+}
+
+enum FormSubmissionStatus {
+  SUBMITTED
+}
+
+enum FormUploadStatus {
+  PENDING
+  ATTACHED
+  EXPIRED
+  DELETED
+  DELETE_FAILED
+}
+
+enum FormEventKind {
+  REGISTRATION
+  FEEDBACK
+  GENERAL
 }
 
 model Committee {
@@ -113,6 +173,7 @@ model User {
   phone              String?
   academicNumber     String?  @unique @db.VarChar(64)
   clubId             String?  @unique @db.VarChar(64)
+  dateOfBirth        DateTime? @db.Date
   isActive           Boolean  @default(true)
   mustChangePassword        Boolean   @default(true)
   temporaryPasswordExpiresAt DateTime?
@@ -144,6 +205,15 @@ model User {
   pointTransactions  PointTransaction[] @relation("PointRecipient")
   actedPointTransactions PointTransaction[] @relation("PointActor")
   telegramLinkTokens TelegramLinkToken[]
+  createdForms       Form[] @relation("FormCreator")
+  updatedForms       Form[] @relation("FormUpdater")
+  formSubmissions    FormSubmission[] @relation("FormSubmissions")
+  formTemplatesCreated FormTemplate[] @relation("FormTemplatesCreated")
+  formUploads        FormUpload[] @relation("FormUploadUploader")
+  eventReadiness     EventReadiness[]
+  birthdayDeliveries BirthdayDelivery[]
+  certificatesReceived Certificate[] @relation("CertificateRecipient")
+  certificatesIssued   Certificate[] @relation("CertificateIssuer")
 
   @@index([committeeId, role, isActive])
   @@index([isMTC, position])
@@ -219,6 +289,9 @@ model Event {
   createdBy       User     @relation("EventAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   attendanceSessions AttendanceSession[]
   pointTransactions  PointTransaction[]
+  formEvents         FormEvent[]
+  readiness          EventReadiness[]
+  notifications      Notification[]
 
   @@index([published, startsAt])
   @@index([committeeId, startsAt])
@@ -260,24 +333,26 @@ model AttendanceSession {
 }
 
 model AttendanceRecord {
-  id            String           @id @default(cuid())
-  userId        String
-  sessionId     String
-  status        AttendanceStatus
-  checkedInAt   DateTime?
+  id             String                 @id @default(cuid())
+  userId         String
+  sessionId      String
+  status         AttendanceStatus
+  source         AttendanceRecordSource @default(UNKNOWN)
+  checkedInAt    DateTime?
   distanceMeters Float?
   accuracyMeters Float?
-  reason        String?          @db.VarChar(500)
-  markedById    String?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session       AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  reason         String?                @db.VarChar(500)
+  markedById     String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session        AttendanceSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   pointTransactions PointTransaction[]
 
   @@unique([userId, sessionId])
   @@index([sessionId, status])
   @@index([userId, checkedInAt])
+  @@index([sessionId, source])
 }
 
 model AttendanceAttempt {
@@ -360,6 +435,7 @@ model Notification {
   message         String   @db.VarChar(3000)
   messageAr       String?  @db.VarChar(3000)
   link            String?
+  eventId         String?
   type            NotificationType
   audience        NotificationAudience
   audienceRole    Role?
@@ -373,10 +449,12 @@ model Notification {
   updatedAt       DateTime             @updatedAt
   createdBy       User?                @relation("NotificationAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   committee       Committee?           @relation(fields: [committeeId], references: [id], onDelete: SetNull)
+  event           Event?               @relation(fields: [eventId], references: [id], onDelete: SetNull)
   recipients      NotificationRecipient[]
 
   @@index([scheduledAt, sentAt])
   @@index([createdAt])
+  @@index([eventId, type])
 }
 
 model NotificationRecipient {
@@ -394,6 +472,20 @@ model NotificationRecipient {
   @@unique([notificationId, userId])
   @@index([userId, readAt, createdAt])
   @@index([pushSentAt, pushAttempts])
+}
+
+model EventReadiness {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, createdAt])
+  @@index([eventId, createdAt])
 }
 
 model PushSubscription {
@@ -420,6 +512,56 @@ model NotificationPreference {
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
+}
+
+
+model Certificate {
+  id                      String   @id @default(cuid())
+  certificateCode         String   @unique @db.VarChar(64)
+  userId                  String
+  issuedById              String?
+  issuanceIdempotencyKey  String?  @db.VarChar(128)
+  requestHash             String?  @db.VarChar(128)
+  title                   String   @db.VarChar(200)
+  titleAr                 String?  @db.VarChar(200)
+  issuerName              String   @db.VarChar(200)
+  issuerNameAr            String?  @db.VarChar(200)
+  issueDate               DateTime @db.Date
+  fileKey                 String   @db.VarChar(1024)
+  fileName                String   @db.VarChar(255)
+  fileMime                String   @db.VarChar(255)
+  fileSize                Int
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  user                    User     @relation("CertificateRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  issuedBy                User?    @relation("CertificateIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+
+  @@unique([issuedById, issuanceIdempotencyKey])
+  @@index([userId, issueDate])
+  @@index([issuedById, createdAt])
+}
+enum BirthdayDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model BirthdayDelivery {
+  id             String                 @id @default(cuid())
+  userId         String
+  year           Int
+  status         BirthdayDeliveryStatus @default(PENDING)
+  notificationId String?
+  claimedAt      DateTime               @default(now())
+  sentAt         DateTime?
+  lastError      String?                @db.VarChar(500)
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
+  @@index([year, status])
+  @@index([status, claimedAt])
 }
 
 model AuditLog {
@@ -472,4 +614,167 @@ model TelegramLinkToken {
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
+}
+
+model Form {
+  id              String              @id @default(cuid())
+  publicSlug      String              @unique @db.VarChar(64)
+  title           String              @db.VarChar(200)
+  titleAr         String?             @db.VarChar(200)
+  description     String?             @db.VarChar(5000)
+  descriptionAr   String?             @db.VarChar(5000)
+  accessMode      FormAccessMode      @default(MEMBERS_ONLY)
+  status          FormStatus          @default(DRAFT)
+  opensAt         DateTime?
+  closesAt        DateTime?
+  maxResponses    Int?
+  duplicatePolicy FormDuplicatePolicy @default(ALLOW)
+  publishedAt     DateTime?
+  closedAt        DateTime?
+  archivedAt      DateTime?
+  createdById     String
+  updatedById     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  createdBy       User                @relation("FormCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy       User?               @relation("FormUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  fields          FormField[]
+  submissions     FormSubmission[]
+  eventLinks      FormEvent[]
+  uploads         FormUpload[]
+
+  @@index([createdById, updatedAt])
+  @@index([status, updatedAt])
+  @@index([accessMode, status])
+}
+
+model FormField {
+  id            String        @id @default(cuid())
+  formId        String
+  type          FormFieldType
+  label         String        @db.VarChar(300)
+  labelAr       String?       @db.VarChar(300)
+  description   String?       @db.VarChar(2000)
+  descriptionAr String?       @db.VarChar(2000)
+  required      Boolean       @default(false)
+  order         Int           @default(0)
+  options       Json?
+  validation    Json?
+  isArchived    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  form          Form          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  answers       FormAnswer[]
+  uploads       FormUpload[]
+
+  @@index([formId, order])
+  @@index([formId, isArchived, order])
+}
+
+model FormEvent {
+  id        String        @id @default(cuid())
+  formId    String
+  eventId   String
+  kind      FormEventKind @default(GENERAL)
+  createdAt DateTime      @default(now())
+  form      Form          @relation(fields: [formId], references: [id], onDelete: Cascade)
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, eventId])
+  @@index([eventId, kind])
+  @@index([formId])
+}
+
+model FormSubmission {
+  id                String               @id @default(cuid())
+  publicId          String               @unique @db.VarChar(64)
+  formId            String
+  respondentUserId  String?
+  respondentEmail   String?              @db.VarChar(320)
+  respondentName    String?              @db.VarChar(200)
+  status            FormSubmissionStatus @default(SUBMITTED)
+  ipHash            String?              @db.VarChar(128)
+  userAgentHash     String?              @db.VarChar(128)
+  submittedAt       DateTime             @default(now())
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  form              Form                 @relation(fields: [formId], references: [id], onDelete: Cascade)
+  respondentUser    User?                @relation("FormSubmissions", fields: [respondentUserId], references: [id], onDelete: SetNull)
+  answers           FormAnswer[]
+  uploads           FormUpload[]
+
+  @@index([formId, submittedAt])
+  @@index([respondentUserId, submittedAt])
+  @@index([formId, respondentUserId])
+  @@index([formId, respondentEmail])
+  @@index([formId, ipHash])
+}
+
+model FormAnswer {
+  id           String         @id @default(cuid())
+  submissionId String
+  fieldId      String
+  value        Json?
+  fileKey      String?        @db.VarChar(1024)
+  fileName     String?        @db.VarChar(255)
+  fileSize     Int?
+  fileMime     String?        @db.VarChar(255)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  submission   FormSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  field        FormField      @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, fieldId])
+  @@index([fieldId])
+}
+
+model FormUpload {
+  id             String           @id @default(cuid())
+  formId         String
+  fieldId        String
+  key            String           @unique @db.VarChar(1024)
+  fileName       String           @db.VarChar(255)
+  fileSize       Int
+  fileMime       String           @db.VarChar(255)
+  uploaderUserId String?
+  ipHash         String?          @db.VarChar(128)
+  tokenJti       String           @unique @db.VarChar(64)
+  tokenExpiresAt DateTime
+  status         FormUploadStatus @default(PENDING)
+  submissionId   String?
+  attachedAt     DateTime?
+  deletedAt      DateTime?
+  deleteAttempts Int              @default(0)
+  lastDeleteError String?         @db.VarChar(500)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  form           Form             @relation(fields: [formId], references: [id], onDelete: Cascade)
+  field          FormField        @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  uploaderUser   User?            @relation("FormUploadUploader", fields: [uploaderUserId], references: [id], onDelete: SetNull)
+  submission     FormSubmission?  @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  @@index([formId, ipHash, createdAt])
+  @@index([formId, uploaderUserId, createdAt])
+  @@index([status, tokenExpiresAt])
+  @@index([status, createdAt])
+  @@index([submissionId])
+  @@index([fieldId, createdAt])
+}
+
+model FormTemplate {
+  id            String   @id @default(cuid())
+  key           String?  @unique @db.VarChar(80)
+  title         String   @db.VarChar(200)
+  titleAr       String?  @db.VarChar(200)
+  description   String?  @db.VarChar(2000)
+  descriptionAr String?  @db.VarChar(2000)
+  category      String   @db.VarChar(80)
+  isSystem      Boolean  @default(false)
+  fields        Json
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     User?    @relation("FormTemplatesCreated", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category, updatedAt])
 }

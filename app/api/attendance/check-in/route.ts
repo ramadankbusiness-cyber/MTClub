@@ -1,6 +1,6 @@
 import { withApiErrorHandling } from "@/lib/api-error-handler";
 import { NextResponse } from "next/server";
-import { AttendanceAttemptStatus, AttendanceStatus } from "@/lib/db-enums";
+import { AttendanceAttemptStatus, AttendanceRecordSource, AttendanceStatus } from "@/lib/db-enums";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/auth-guards";
 import { checkInSchema } from "@/lib/schemas";
@@ -172,6 +172,7 @@ async function POSTInternal(request: Request) {
           userId: user.id,
           sessionId: session.id,
           status,
+          source: AttendanceRecordSource.QR,
           checkedInAt: now,
           distanceMeters,
           accuracyMeters: input.accuracy,

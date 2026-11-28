@@ -121,6 +121,22 @@ button { color: inherit; }
 .button-inverted { background: #f6f5f2; color: #111114; }
 .menu-button { display: none; }
 .account-actions { position: relative; display: flex; align-items: center; gap: 8px; }
+.points-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--panel) 88%, transparent); color: var(--fg); font-size: 0.82rem; font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 64px; justify-content: center; transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, transform 180ms ease; }
+.points-indicator__icon { flex: 0 0 auto; color: var(--a); transition: color 180ms ease, transform 220ms ease; }
+.points-indicator__value { min-width: 2.2ch; text-align: center; font-variant-numeric: tabular-nums; }
+.points-indicator--up { border-color: color-mix(in srgb, var(--a) 55%, var(--line)); background: color-mix(in srgb, var(--a) 12%, var(--panel)); }
+.points-indicator--up .points-indicator__icon { transform: scale(1.12); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--a) 35%, transparent)); }
+.points-indicator--up .points-indicator__value { color: var(--a); }
+.points-indicator--down { border-color: color-mix(in srgb, #f59e0b 35%, var(--line)); background: color-mix(in srgb, #f59e0b 8%, var(--panel)); }
+.points-indicator--down .points-indicator__icon { color: #f59e0b; transform: scale(0.96); }
+.points-indicator--down .points-indicator__value { color: color-mix(in srgb, #f59e0b 75%, var(--fg)); }
+@media (prefers-reduced-motion: reduce) {
+  .points-indicator, .points-indicator__icon { transition: none !important; animation: none !important; transform: none !important; filter: none !important; }
+}
+@media (max-width: 720px) {
+  .points-indicator { padding: 4px 8px; gap: 5px; min-width: 56px; font-size: 0.78rem; }
+  .points-indicator__icon { width: 14px; height: 14px; }
+}
 .notification-bell-wrap { position: relative; }
 .notification-button { position: relative; display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
 .notification-button:hover { border-color: var(--line); background: var(--surface); color: var(--ink); }
@@ -685,6 +701,14 @@ h1, h2, h3, p { margin-top: 0; }
 .attendance-qr-reader button { min-height: 36px; margin: 5px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); cursor: pointer; }
 .attendance-qr-reader select { min-height: 38px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
 .qr-scanner-shell { position: relative; width: 100%; min-height: 320px; border-radius: 20px; overflow: hidden; background: #04090d; border: 1px solid rgba(34,211,238,0.16); box-shadow: 0 0 0 1px rgba(6,182,212,0.06), 0 24px 60px rgba(0,0,0,0.42); isolation: isolate; }
+.qr-scanner-shell.is-fullscreen { position: fixed; inset: 0; width: 100vw; height: 100dvh; min-height: 100dvh; max-height: 100dvh; border-radius: 0; border: 0; z-index: 10000; margin: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); background: #000; }
+.qr-scanner-shell.is-fullscreen .qr-scanner-video,
+.qr-scanner-shell.is-fullscreen .qr-scanner-overlay,
+.qr-scanner-shell.is-fullscreen .qr-scanner-hud { inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); width: auto; height: auto; }
+.qr-scanner-controls { position: absolute; top: 12px; inset-inline-end: 12px; z-index: 6; display: flex; gap: 8px; }
+.qr-scanner-fs-btn { appearance: none; border: 1px solid rgba(34,211,238,0.22); background: rgba(2,10,14,0.5); color: #dffaff; width: 42px; height: 42px; border-radius: 12px; display: inline-grid; place-items: center; cursor: pointer; backdrop-filter: blur(8px); }
+.qr-scanner-fs-btn:hover { background: rgba(8,47,56,0.65); border-color: rgba(34,211,238,0.4); }
+.qr-scanner-fs-btn:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
 .qr-scanner-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; display: block; }
 .qr-scanner-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
 .qr-scanner-hud { position: absolute; inset: 0; pointer-events: none; z-index: 3; }

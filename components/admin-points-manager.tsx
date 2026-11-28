@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppToast } from "@/components/app-toast-provider";
 
 type Member = {
@@ -26,6 +26,7 @@ export function AdminPointsManager({ canManage, locale }: { canManage: boolean; 
   const [amount, setAmount] = useState(1);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const pendingAdjustmentRef = useRef<{ key: string; payload: string } | null>(null);
 
   async function loadMembers(query = q) {
     setLoading(true);
@@ -54,17 +55,27 @@ export function AdminPointsManager({ canManage, locale }: { canManage: boolean; 
     const rsn = reason.trim();
     if (!rsn) { showToast(ar ? "السبب مطلوب." : "Reason is required."); return; }
     const label = action === "ADD" ? (ar ? "إضافة" : "Add") : (ar ? "خصم" : "Deduct");
-    if (!window.confirm(ar ? `تأكيد ${label} ${amt} نقطة للعضو ${selected.name}؟` : `Confirm ${label.toLowerCase()} ${amt} points for ${selected.name}?`)) return;
+    const payload = `${selected.id}:${action}:${amt}:${rsn}`;
+    const isRetry = pendingAdjustmentRef.current?.payload === payload;
+    if (!isRetry) {
+      if (!window.confirm(ar ? `تأكيد ${label} ${amt} نقطة للعضو ${selected.name}؟` : `Confirm ${label.toLowerCase()} ${amt} points for ${selected.name}?`)) return;
+      pendingAdjustmentRef.current = { key: crypto.randomUUID(), payload };
+    }
+    const idempotencyKey = pendingAdjustmentRef.current!.key;
     setBusy(true);
     try {
-      const res = await fetch("/api/admin/points", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: selected.id, amount: amt, reason: rsn, action }) });
+      const res = await fetch("/api/admin/points", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: selected.id, amount: amt, reason: rsn, action, idempotencyKey }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
-      showToast(ar ? "تمت العملية بنجاح." : "Points updated.");
+      pendingAdjustmentRef.current = null;
+      showToast(data.idempotent ? (ar ? "تمت معالجة الطلب مسبقًا." : "Request already processed.") : (ar ? "تمت العملية بنجاح." : "Points updated."));
       setReason("");
       await loadMembers(q);
       await loadHistory(selected.id);
-    } catch (e: unknown) { showToast(e instanceof Error ? e.message : "Error"); }
+    } catch (e: unknown) {
+      // Keep pendingAdjustmentRef for retry of same logical adjustment when outcome is uncertain.
+      showToast(e instanceof Error ? e.message : "Error");
+    }
     finally { setBusy(false); }
   }
 

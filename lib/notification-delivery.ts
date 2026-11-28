@@ -5,6 +5,16 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { countUnexcusedAbsences, getAbsenceWarningThreshold } from "@/lib/attendance";
 
+export const MANDATORY_IN_APP_NOTIFICATION_TYPES = new Set<NotificationTypeValue>([
+  "ACCOUNT_CREATED" as NotificationTypeValue,
+  "PASSWORD_CHANGED" as NotificationTypeValue,
+  "ROLE_CHANGED" as NotificationTypeValue,
+]);
+
+export function isMandatoryInAppNotificationType(type: string) {
+  return MANDATORY_IN_APP_NOTIFICATION_TYPES.has(type as NotificationTypeValue);
+}
+
 export async function dispatchPushNotification(notificationId: string) {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -103,6 +113,7 @@ export async function createImmediateNotification(input: {
   message: string;
   messageAr?: string | null;
   link: string;
+  eventId?: string | null;
   type: NotificationTypeValue;
   audience: "EVERYONE" | "COMMITTEE" | "USERS";
   committeeId: string | null;
@@ -121,7 +132,9 @@ export async function createImmediateNotification(input: {
   });
   const recipients = users.filter((user) => {
     const preference = user.notificationPreferences[0];
-    return preference?.inApp !== false || preference?.push !== false;
+    const inApp = isMandatoryInAppNotificationType(input.type) ? true : preference?.inApp !== false;
+    const push = preference?.push !== false;
+    return inApp || push;
   });
   const notification = await prisma.$transaction(async (transaction) => {
     const created = await transaction.notification.create({
@@ -178,6 +191,7 @@ export async function dispatchOperationalReminders(now = new Date()) {
             message: `“${event.title}” starts ${reminder.hours === 1 ? "in one hour" : "in 24 hours"}.`,
             messageAr: `يبدأ موعد "${event.titleAr || event.title}" ${reminder.hours === 1 ? "بعد ساعة" : "خلال 24 ساعة"}.`,
             link,
+            eventId: event.id,
             type: "EVENT_REMINDER",
             audience: event.committeeId ? "COMMITTEE" : "EVERYONE",
             committeeId: event.committeeId,
@@ -322,5 +336,8 @@ export async function countUnreadForUser(userId: string) {
       user: { select: { notificationPreferences: { select: { type: true, inApp: true } } } },
     },
   });
-  return rows.filter((row) => row.user.notificationPreferences.find((preference) => preference.type === row.notification.type)?.inApp !== false).length;
+  return rows.filter((row) => {
+    if (isMandatoryInAppNotificationType(row.notification.type)) return true;
+    return row.user.notificationPreferences.find((preference) => preference.type === row.notification.type)?.inApp !== false;
+  }).length;
 }

@@ -139,6 +139,9 @@ export async function syncAttendancePoints(
 
   if (difference === 0) return [];
 
+  // System attendance correction: apply full difference to keep attendance ledger net correct.
+  // Manual deductions remain blocked from creating negative balances; system corrections may
+  // result in a negative total balance to preserve auditable accounting correctness.
   const dedupeKey = `attendance:${record.id}:sync:${count}:${desired}:${currentNet}`;
   const type: PointTransactionType = difference > 0
     ? (currentNet === 0 ? "EVENT_ATTENDANCE" : "ATTENDANCE_ADJUSTMENT")
@@ -189,6 +192,9 @@ export async function reverseAttendancePoints(
   if (net === 0) return [];
 
   const amount = -net;
+  if (amount === 0) return [];
+
+  // System attendance correction: reverse full remaining net to preserve accounting correctness.
   const dedupeKey = `attendance:${input.attendanceRecordId}:sync:${count}:0:${net}`;
   const reason = input.reason ?? `Attendance reversal: ${input.reasonBase}`;
   const result = await insertPointTx(tx, {
@@ -209,7 +215,7 @@ export async function reverseAttendancePoints(
 
 export async function applyManualPointTransaction(
   tx: Tx,
-  input: { userId: string; amount: number; reason: string; actorId: string },
+  input: { userId: string; amount: number; reason: string; actorId: string; idempotencyKey?: string | null },
 ) {
   if (!input.actorId) throw new PointsError("INVALID_ACTOR", "Actor is required.");
   const reason = typeof input.reason === "string" ? input.reason.trim() : "";
@@ -232,9 +238,12 @@ export async function applyManualPointTransaction(
   const next = current + amount;
   if (next < 0) throw new PointsError("NEGATIVE_BALANCE", "Deduction would make balance negative.");
 
-  const id = crypto.randomUUID();
   const type: PointTransactionType = amount > 0 ? "MANUAL_ADD" : "MANUAL_DEDUCT";
-  const dedupeKey = `manual:${id}:${input.userId}:${amount}`;
+  const idempotencyKey = typeof input.idempotencyKey === "string" && input.idempotencyKey.trim() ? input.idempotencyKey.trim().slice(0, 128) : null;
+  const dedupeKey = idempotencyKey
+    ? `manual:idem:${input.actorId}:${input.userId}:${idempotencyKey}`
+    : `manual:${crypto.randomUUID()}:${input.userId}:${amount}`;
+
   const created = await insertPointTx(tx, {
     userId: input.userId,
     amount,
@@ -243,10 +252,15 @@ export async function applyManualPointTransaction(
     actorId: input.actorId,
     dedupeKey,
   });
-  if (!created.created) throw new PointsError("DUPLICATE_TRANSACTION", "Duplicate manual transaction.");
+  if (!created.created) {
+    const existing = await tx.pointTransaction.findUnique({ where: { dedupeKey } });
+    if (!existing) throw new PointsError("DEDUPE_CONFLICT", "Unique constraint conflict was not caused by dedupeKey.");
+    const balance = await getUserPointBalance(tx, input.userId);
+    return { transaction: existing, balance, idempotent: true as const };
+  }
 
   const txRow = await tx.pointTransaction.findUnique({ where: { dedupeKey } });
-  return { transaction: txRow, balance: next };
+  return { transaction: txRow, balance: next, idempotent: false as const };
 }
 
 export async function sendPointNotifications(notifications: PointsNotification[]) {

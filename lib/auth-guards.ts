@@ -25,6 +25,7 @@ export async function getCurrentUser() {
       telegramUserId: true,
       telegramUsername: true,
       telegramLinkedAt: true,
+      dateOfBirth: true,
     },
   });
 }

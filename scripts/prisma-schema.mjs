@@ -20,6 +20,7 @@ export async function createLocalSqliteSchema() {
   schema = schema.replace('provider = "postgresql"', 'provider = "sqlite"');
   schema = schema.replace(/^\s*directUrl\s*=.*\r?\n/gm, "");
   schema = schema.replace(/@db\.VarChar\(\d+\)/g, "");
+  schema = schema.replace(/@db\.Date/g, "");
   await writeFile(localSchemaPath, schema, "utf8");
   return localSchemaPath;
 }

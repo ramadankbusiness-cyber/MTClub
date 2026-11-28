@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { emitPointsUpdated } from "./points-indicator";
 import { useAppToast } from "@/components/app-toast-provider";
 import { QrScannerView } from "@/components/qr-scanner";
 
@@ -175,6 +176,7 @@ export function ScanAttendanceClient() {
       if (!mountedRef.current) return;
       setSuccess(true);
       setScanSuccess(true);
+      emitPointsUpdated();
       const statusLabel = result.record?.status === "PRESENT" ? t("present") : result.record?.status === "LATE" ? t("late") : String(result.record?.status ?? "").toLowerCase();
       setMessage(t("confirmed", { status: statusLabel }));
       setBusy(false);
@@ -241,6 +243,8 @@ export function ScanAttendanceClient() {
               permissionDenied: t("cameraPermissionDenied"),
               notReadable: t("cameraNotReadable"),
               genericError: t("cameraGenericError"),
+              fullscreen: t("fullscreen"),
+              exitFullscreen: t("exitFullscreen"),
             }}
           />
         )}

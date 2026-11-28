@@ -11,6 +11,7 @@ const adjustSchema = z.object({
   amount: z.coerce.number().int().min(1).max(100000),
   reason: z.string().trim().min(1).max(500),
   action: z.enum(["ADD", "DEDUCT"]),
+  idempotencyKey: z.string().trim().min(1).max(128).optional(),
 });
 
 async function GETInternal(request: Request) {
@@ -84,7 +85,7 @@ async function POSTInternal(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = adjustSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid points adjustment." }, { status: 400 });
-  const { userId, amount, reason, action } = parsed.data;
+  const { userId, amount, reason, action, idempotencyKey } = parsed.data;
 
   const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, committeeId: true, isActive: true } });
   if (!target || !target.isActive) return NextResponse.json({ error: "Member not found." }, { status: 404 });
@@ -94,10 +95,12 @@ async function POSTInternal(request: Request) {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      return applyManualPointTransaction(tx, { userId, amount: signedAmount, reason, actorId: access.user.id });
+      return applyManualPointTransaction(tx, { userId, amount: signedAmount, reason, actorId: access.user.id, idempotencyKey });
     });
-    await sendPointNotifications([{ userId, amount: signedAmount, reason, balance: result.balance, actorId: access.user.id }]);
-    return NextResponse.json({ ok: true, balance: result.balance, transaction: result.transaction });
+    if (!result.idempotent) {
+      await sendPointNotifications([{ userId, amount: signedAmount, reason, balance: result.balance, actorId: access.user.id }]);
+    }
+    return NextResponse.json({ ok: true, balance: result.balance, transaction: result.transaction, idempotent: result.idempotent });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "";
     const code = (e && typeof e === "object" && "code" in e) ? String((e as { code?: unknown }).code) : msg;

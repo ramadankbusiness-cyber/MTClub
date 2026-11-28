@@ -30,12 +30,12 @@ async function POSTInternal(request: Request, context: RouteContext) {
     const record = await tx.attendanceRecord.upsert({
       where: { userId_sessionId: { userId: member.id, sessionId } },
       create: {
-        userId: member.id, sessionId, status: parsed.data.status,
+        userId: member.id, sessionId, status: parsed.data.status, source: "MANUAL",
         reason: parsed.data.reason, markedById: access.user.id,
         checkedInAt: parsed.data.status === "PRESENT" || parsed.data.status === "LATE" ? new Date() : null,
       },
       update: {
-        status: parsed.data.status, reason: parsed.data.reason, markedById: access.user.id,
+        status: parsed.data.status, source: "MANUAL", reason: parsed.data.reason, markedById: access.user.id,
         checkedInAt: parsed.data.status === "PRESENT" || parsed.data.status === "LATE" ? new Date() : null,
         distanceMeters: null, accuracyMeters: null,
       },

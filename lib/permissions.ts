@@ -7,6 +7,8 @@ export const permissions = {
     "applications.read",
     "team.read", "team.manage",
     "events.read", "events.create", "events.update", "events.delete",
+    "forms.read", "forms.create", "forms.update", "forms.delete", "forms.responses.read", "forms.responses.export",
+    "certificates.read.all", "certificates.issue", "certificates.read.own",
     "zones.manage",
     "attendance.sessions.create", "attendance.sessions.manage", "attendance.qr.generate",
     "attendance.read.all", "attendance.export", "attendance.manualMark",
@@ -21,16 +23,19 @@ export const permissions = {
     "dashboard.view",
     "team.read",
     "events.read", "events.create", "events.update",
+    "forms.read", "forms.create", "forms.update", "forms.responses.read", "forms.responses.export",
     "attendance.read.committee", "attendance.export.committee",
     "excuses.read.committee", "excuses.review",
     "notifications.read", "notifications.send",
     "profile.read.own", "profile.update.own", "attendance.read.own", "attendance.scan.own",
     "notifications.manage.own", "excuses.create.own",
+    "certificates.read.own",
   ],
   MEMBER: [
     "dashboard.view", "team.read", "events.read",
     "profile.read.own", "profile.update.own", "attendance.read.own", "attendance.scan.own",
     "notifications.read", "notifications.manage.own", "excuses.create.own",
+    "certificates.read.own",
   ],
 } as const satisfies Record<Role, readonly string[]>;
 

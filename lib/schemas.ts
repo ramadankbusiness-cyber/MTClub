@@ -195,7 +195,7 @@ export const notificationSchema = z.object({
   message: z.string().trim().min(2).max(3000),
   messageAr: z.string().trim().max(3000).optional().nullable(),
   link: z.string().startsWith("/").max(500).refine((value) => !value.startsWith("//") && !value.includes("\\"), "Use a same-site link").optional().nullable(),
-  type: z.enum(["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION", "POINTS_ADDED", "POINTS_DEDUCTED"]).default("ANNOUNCEMENT"),
+  type: z.enum(["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION", "POINTS_ADDED", "POINTS_DEDUCTED", "BIRTHDAY"]).default("ANNOUNCEMENT"),
   audience: z.enum(["EVERYONE", "ROLE", "COMMITTEE", "USERS", "MTC", "POSITION"]),
   audienceRole: z.enum(["ADMIN", "LEADER", "MEMBER"]).optional(),
   audiencePosition: positionSchema.optional(),
@@ -206,7 +206,7 @@ export const notificationSchema = z.object({
 });
 
 export const notificationPreferenceSchema = z.object({
-  type: z.enum(["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION"]),
+  type: z.enum(["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION", "POINTS_ADDED", "POINTS_DEDUCTED", "BIRTHDAY"]),
   inApp: z.boolean(),
   push: z.boolean(),
 });
@@ -235,4 +235,52 @@ export const excuseSchema = z.object({
 export const excuseReviewSchema = z.object({
   status: z.enum(["APPROVED", "REJECTED"]),
   reviewNote: z.string().trim().max(500).optional().nullable(),
+});
+
+const formFieldOptionSchema = z.string().trim().min(1).max(200);
+export const formFieldSchema = z.object({
+  id: z.string().optional(),
+  type: z.enum(["SHORT_ANSWER","PARAGRAPH","MULTIPLE_CHOICE","CHECKBOXES","DROPDOWN","NUMBER","DATE","TIME","EMAIL","PHONE","FILE_UPLOAD"]),
+  label: z.string().trim().min(1).max(300),
+  labelAr: z.string().trim().max(300).optional().nullable(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  descriptionAr: z.string().trim().max(2000).optional().nullable(),
+  required: z.boolean().default(false),
+  order: z.number().int().min(0).max(10000).optional(),
+  options: z.array(formFieldOptionSchema).max(50).optional().nullable(),
+  validation: z.record(z.string(), z.unknown()).optional().nullable(),
+  isArchived: z.boolean().optional(),
+});
+
+export const formSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  titleAr: z.string().trim().max(200).optional().nullable(),
+  description: z.string().trim().max(5000).optional().nullable(),
+  descriptionAr: z.string().trim().max(5000).optional().nullable(),
+  accessMode: z.enum(["MEMBERS_ONLY","AUTHENTICATED_USERS","PUBLIC"]).default("MEMBERS_ONLY"),
+  status: z.enum(["DRAFT","PUBLISHED","CLOSED","ARCHIVED"]).optional(),
+  opensAt: z.coerce.date().optional().nullable(),
+  closesAt: z.coerce.date().optional().nullable(),
+  maxResponses: z.number().int().min(1).max(100000).optional().nullable(),
+  duplicatePolicy: z.enum(["ALLOW","ONE_PER_USER","ONE_PER_EMAIL","ONE_PER_IP"]).default("ALLOW"),
+  fields: z.array(formFieldSchema).max(100).default([]),
+  eventLinks: z.array(z.object({
+    eventId: z.string().min(1),
+    kind: z.enum(["REGISTRATION","FEEDBACK","GENERAL"]).default("GENERAL"),
+  })).max(50).optional(),
+}).refine((value) => !value.opensAt || !value.closesAt || value.closesAt > value.opensAt, {
+  message: "Close date must be after open date",
+  path: ["closesAt"],
+});
+
+export const formSubmissionAnswerSchema = z.object({
+  fieldId: z.string().min(1),
+  value: z.unknown().optional(),
+});
+
+export const formSubmissionSchema = z.object({
+  answers: z.array(formSubmissionAnswerSchema).max(200),
+  respondentEmail: z.string().trim().email().max(320).optional().nullable(),
+  respondentName: z.string().trim().max(200).optional().nullable(),
+  website: z.string().max(200).optional().nullable(), // honeypot
 });

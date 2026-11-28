@@ -4,9 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAppToast } from "@/components/app-toast-provider";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { getCommitteeLabel } from "@/data/committees";
 import ZoneCapture, { type ZoneCaptureValue } from "@/components/zone-capture";
 import { CommitteeSelect } from "@/components/committee-select";
+import { EventFormsPanel } from "@/components/event-forms-panel";
 
 type DbCommittee = { id: string; key: string; name: string; nameAr: string };
 type ManagedAttendanceSession = {
@@ -227,9 +229,11 @@ export function AdminEventManager({ initialEvents, initialArchivedEvents = [], c
           <div className="user-admin-status"><span>{item.committee ? getCommitteeLabel(item.committee.name, locale as "en" | "ar") : t("allMembers")}</span><span>{item.published ? t("published") : t("draft")}</span></div>
           <div className="user-admin-actions">
             <button className="button button-secondary" type="button" onClick={() => editEvent(item)} disabled={!!busyAction}>{t("editButton")}</button>
+            <Link className="button button-secondary" href={`/${locale}/admin/events/${item.id}/dashboard`}>{t("dashboard")}</Link>
             {isAdmin && <button className="button button-secondary" type="button" onClick={() => void archiveEvent(item)} disabled={!!busyAction}>{busyAction === `archive:${item.id}` ? "..." : t("archive")}</button>}
             {isAdmin && <button className="button button-secondary danger-button" type="button" onClick={() => void permanentlyDeleteEvent(item)} disabled={!!busyAction}>{t("permanentDelete")}</button>}
           </div>
+          <EventFormsPanel eventId={item.id} />
           {editingId === item.id && <EventAttendancePanel event={item} onUpdated={(updated) => setEvents((current) => current.map((entry) => entry.id === updated.id ? updated : entry))} />}
         </article>)}
           {!events.length && <p className="empty-note">{t("empty")}</p>}

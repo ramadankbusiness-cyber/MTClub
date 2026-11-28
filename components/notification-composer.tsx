@@ -22,7 +22,7 @@ type HistoryItem = {
   readCount: number;
 };
 
-const typeOptions = ["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION"] as const;
+const typeOptions = ["ANNOUNCEMENT", "NEW_EVENT", "EVENT_REMINDER", "SESSION_OPENED", "ATTENDANCE_CONFIRMED", "ATTENDANCE_REJECTED", "ABSENCE_WARNING", "ACCOUNT_CREATED", "PASSWORD_CHANGED", "ROLE_CHANGED", "EXCUSE_DECISION", "POINTS_ADDED", "POINTS_DEDUCTED", "BIRTHDAY"] as const;
 
 export function NotificationComposer({ role, committees, users }: { role: Role; committees: DbCommittee[]; users: UserOption[] }) {
   const showToast = useAppToast();

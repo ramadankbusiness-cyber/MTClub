@@ -7,6 +7,7 @@ import { Menu, X } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useSite } from "./site-provider";
 import { NotificationBell } from "./notification-bell";
+import { PointsIndicator } from "./points-indicator";
 import { useDismiss } from "@/lib/use-dismiss";
 
 const links = [
@@ -69,6 +70,7 @@ export function Navbar() {
           </button>
           {session?.user ? (
             <div className="account-actions">
+              <PointsIndicator />
               <NotificationBell />
               <button ref={accountButtonRef} className="avatar-button" type="button" aria-expanded={accountMenuOpen} aria-label={text.nav.account} onClick={() => setAccountMenuOpen((open) => !open)}>
                 {session.user.image ? (
@@ -96,15 +98,21 @@ export function Navbar() {
                   <Link href="/leaderboard" onClick={() => setAccountMenuOpen(false)}>{text.nav.leaderboard}</Link>
                   <Link href="/excuses" onClick={() => setAccountMenuOpen(false)}>{text.nav.excuses}</Link>
                   <Link href="/profile" onClick={() => setAccountMenuOpen(false)}>{text.nav.profile}</Link>
+                  <Link href="/certificates" onClick={() => setAccountMenuOpen(false)}>{((text.nav as unknown) as { myCertificates?: string }).myCertificates || "Certificates"}</Link>
                   <Link href="/notifications" onClick={() => setAccountMenuOpen(false)}>{text.nav.notifications}</Link>
+                  <Link href="/activity" onClick={() => setAccountMenuOpen(false)}>{((text.nav as unknown) as { activity?: string }).activity || "Activity"}</Link>
                   {(session.user.role === "ADMIN" || session.user.role === "LEADER") && <Link href="/admin/notifications" onClick={() => setAccountMenuOpen(false)}>{text.nav.sendNotifications}</Link>}
                   {session.user.role === "ADMIN" && <>
                     <Link href="/admin/applications" onClick={() => setAccountMenuOpen(false)}>{text.nav.applications}</Link>
                     <Link href="/admin/users" onClick={() => setAccountMenuOpen(false)}>{text.nav.manageAccounts}</Link>
                     <Link href="/admin/events" onClick={() => setAccountMenuOpen(false)}>{text.nav.manageEvents}</Link>
+                    <Link href="/admin/forms" onClick={() => setAccountMenuOpen(false)}>{text.nav.manageForms}</Link>
+                    <Link href="/admin/certificates" onClick={() => setAccountMenuOpen(false)}>{((text.nav as unknown) as { manageCertificates?: string }).manageCertificates || "Certificates"}</Link>
                     <Link href="/admin/zones" onClick={() => setAccountMenuOpen(false)}>{text.nav.zones}</Link>
+                    <Link href="/admin/activity" onClick={() => setAccountMenuOpen(false)}>{((text.nav as unknown) as { activityReview?: string }).activityReview || "Activity review"}</Link>
                     <Link href="/admin/audit" onClick={() => setAccountMenuOpen(false)}>{text.nav.audit}</Link>
                   </>}
+                  {session.user.role === "LEADER" && <Link href="/admin/forms" onClick={() => setAccountMenuOpen(false)}>{text.nav.manageForms}</Link>}
                   <button type="button" onClick={() => signOut({ callbackUrl: `/${language}` })}>{text.nav.logout}</button>
                 </div>
               )}

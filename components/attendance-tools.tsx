@@ -1,5 +1,6 @@
 "use client";
 
+import { emitPointsUpdated } from "./points-indicator";
 import React from "react";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -583,6 +584,7 @@ function MemberAttendance({ records, attendanceRate }: { records: AttendanceReco
       if (!mountedRef.current) return;
       setSuccess(true);
       setScanSuccess(true);
+      emitPointsUpdated();
       const statusLabel = result.record?.status === "PRESENT" ? t("present") : result.record?.status === "LATE" ? t("late") : String(result.record?.status ?? "").toLowerCase();
       setMessage(t("confirmed", { status: statusLabel }));
       setBusy(false);
